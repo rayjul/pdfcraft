@@ -372,6 +372,171 @@ pub fn em_box(tight: [f32; 4], text: &str) -> Option<Word> {
     Some(Word { text: text.into(), rect: [tight[0], (baseline - em) as f32, tight[2], baseline as f32] })
 }
 
+/// A recognised line ready for Editable Text output, in image pixels: its words, the colours of
+/// its letters and paper ([`line_colours`]) and its measured em box ([`ink_box`], [`em_box`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct EditableLine {
+    pub words: Vec<Word>,
+    pub ink: [f64; 3],
+    pub paper: [f64; 3],
+    pub em: Option<Word>,
+}
+
+/// A word this many times taller than the others on its line has handwriting or a stamp through
+/// it (a signature's loops stretch the box OCR finds), so it is left in the image.
+const TALL_WORD: f32 = 1.8;
+/// A word shorter than this fraction of the page's typical word is a speck, not a letter.
+const SPECK: f32 = 0.4;
+/// A word nearer than this many line heights to one left in the image (on any line, side by
+/// side) is left too: a stamp or signature rarely ends exactly where OCR split the words.
+const TOUCHING: f32 = 0.5;
+/// Words further apart than this many line heights are separate fields (columns, form labels
+/// and their values), each its own line.
+const FIELD_GAP: f32 = 2.5;
+
+/// Prepare the lines OCR found for "Editable Text and Images": only printed words become text.
+/// - Words much taller than the rest of their line (handwriting or a stamp through them), in an
+///   ink of another colour than the page's print (a blue signature, a red stamp) or too small to
+///   be letters (specks) are left in the image, untouched.
+/// - Words touching those are left too ([`TOUCHING`]).
+/// - A line is split where such a word was, at a ruled line between two words (table cells), at
+///   a gap wider than [`FIELD_GAP`] line heights, so each cell or field edits on its own, and
+///   where something OCR didn't read is inked between two words, so the cover never hides it.
+/// - A measured em that doesn't fit the words' boxes (something else inked in the box) is
+///   dropped, and the size is estimated from the boxes instead.
+pub fn editable_lines(rgba: &[u8], width: u32, height: u32, lines: &[Line]) -> Vec<EditableLine> {
+    let tall = |w: &Word| w.rect[3] - w.rect[1];
+    let sane = |w: &&Word| w.rect.iter().all(|v| v.is_finite()) && tall(w) > 0.0 && w.rect[2] > w.rect[0];
+    let page_height = lower_median(lines.iter().flat_map(|l| &l.words).filter(sane).map(tall).collect());
+    // Each word's colours, and the page's print colour: the median ink of its words.
+    let coloured: Vec<Vec<Coloured>> = lines
+        .iter()
+        .map(|l| {
+            l.words
+                .iter()
+                .filter(sane)
+                .map(|w| {
+                    let (ink, paper) = line_colours(rgba, width, height, w.rect);
+                    (w, ink, paper)
+                })
+                .collect()
+        })
+        .collect();
+    let inks: Vec<[f64; 3]> = coloured.iter().flatten().map(|(_, ink, _)| *ink).collect();
+    let print = std::array::from_fn::<f64, 3, _>(|c| lower_median(inks.iter().map(|i| i[c] as f32).collect()).map_or(0.0, f64::from));
+    let chroma = |c: [f64; 3]| c.iter().copied().fold(f64::MIN, f64::max) - c.iter().copied().fold(f64::MAX, f64::min);
+    // A faded stamp is barely tinted once blurred; a printed word mistaken for one only stays in
+    // the image, so this errs that way.
+    let foreign = |ink: [f64; 3]| chroma(ink) - chroma(print) > 0.025 && (0..3).map(|c| (ink[c] - print[c]).abs()).sum::<f64>() > 0.12;
+    // The marks (handwriting, stamps, specks) across the page, each with how near a word must
+    // come to it to be left in the image with it: a stamp's date can sit on another OCR line.
+    let mut marks: Vec<([f32; 4], f32)> = Vec::new();
+    let mut heights = Vec::new();
+    for words in &coloured {
+        let line_height = lower_median(words.iter().map(|(w, ..)| tall(w)).collect());
+        heights.push(line_height);
+        let Some(line_height) = line_height else { continue };
+        for &(w, ink, _) in words {
+            let print_like = tall(w) <= TALL_WORD * line_height && page_height.is_none_or(|p| tall(w) >= SPECK * p) && !foreign(ink);
+            if !print_like {
+                marks.push((w.rect, TOUCHING * line_height));
+            }
+        }
+    }
+    let marked =
+        |w: &Word| marks.iter().any(|&(m, reach)| w.rect[1] < m[3] && m[1] < w.rect[3] && w.rect[0] - m[2] < reach && m[0] - w.rect[2] < reach);
+    let mut out = Vec::new();
+    for (words, line_height) in coloured.iter().zip(heights) {
+        let Some(line_height) = line_height else { continue };
+        let mut part: Vec<Word> = Vec::new();
+        for &(w, _, paper) in words {
+            if marked(w) {
+                out.extend(measure(rgba, width, height, std::mem::take(&mut part)));
+                continue;
+            }
+            if let Some(prev) = part.last()
+                && splits(rgba, width, height, prev.rect, w.rect, line_height, paper)
+            {
+                out.extend(measure(rgba, width, height, std::mem::take(&mut part)));
+            }
+            part.push(w.clone());
+        }
+        out.extend(measure(rgba, width, height, part));
+    }
+    out
+}
+
+/// Whether the line breaks between neighbouring words `a` and `b` (pixel boxes, left to right):
+/// they are separate fields ([`FIELD_GAP`]), a ruled line runs between them (a table's cells), or
+/// something OCR didn't read is inked in a wide gap between them (a digit, a symbol), which a
+/// cover across the whole line would hide.
+fn splits(rgba: &[u8], width: u32, height: u32, a: [f32; 4], b: [f32; 4], line_height: f32, paper: [f64; 3]) -> bool {
+    let gap = b[0] - a[2];
+    if gap > FIELD_GAP * line_height {
+        return true;
+    }
+    // A cell's border runs past the letters above and below; a letter's stem clipped by its word
+    // box doesn't.
+    let reach = 0.25 * line_height;
+    let (top, bottom) = (a[1].min(b[1]), a[3].max(b[3]));
+    let ruled = ink_columns(rgba, width, height, [a[2] + 1.0, top - reach, b[0] - 1.0, bottom + reach], paper)
+        .is_some_and(|(cols, rows)| cols.iter().any(|&n| 20 * n >= 17 * rows));
+    // An ordinary space between words holds at most the edges of letters OCR's boxes clipped;
+    // only a wider gap, away from its edges, is looked in.
+    let margin = 0.2 * line_height;
+    let unread = gap > 0.6 * line_height
+        && ink_columns(rgba, width, height, [a[2] + margin, top, b[0] - margin, bottom], paper).is_some_and(|(cols, rows)| {
+            let inked: usize = cols.iter().sum();
+            inked >= 4 && 50 * inked >= cols.len().saturating_mul(rows)
+        });
+    ruled || unread
+}
+
+/// The number of inked pixels (far from `paper`) in each column of `rect` (`[left, top, right,
+/// bottom]`, pixels), and the number of rows; `None` for a box outside the image, of fewer than
+/// three rows, or larger than [`MAX_MEASURED`].
+fn ink_columns(rgba: &[u8], width: u32, height: u32, rect: [f32; 4], paper: [f64; 3]) -> Option<(Vec<usize>, usize)> {
+    let (w, h) = (width as usize, height as usize);
+    if w.checked_mul(h)?.checked_mul(4)? > rgba.len() {
+        return None;
+    }
+    let clamp = |v: f32, max: usize| if v.is_finite() { (v.max(0.0) as usize).min(max) } else { 0 };
+    let [l, t] = [clamp(rect[0].ceil(), w), clamp(rect[1].floor(), h)];
+    let [r, b] = [clamp(rect[2].floor(), w), clamp(rect[3].ceil(), h)];
+    if r <= l || b < t.saturating_add(3) || (r - l).saturating_mul(b - t) > MAX_MEASURED {
+        return None;
+    }
+    let inked = |x: usize, y: usize| {
+        // x < w and y < h, and w × h × 4 fits the buffer (checked above): no overflow.
+        let o = (y * w + x) * 4;
+        rgba.get(o..o + 3).is_some_and(|p| p.iter().zip(paper).map(|(v, c)| (f64::from(*v) / 255.0 - c).abs()).sum::<f64>() > 0.35)
+    };
+    Some(((l..r).map(|x| (t..b).filter(|&y| inked(x, y)).count()).collect(), b - t))
+}
+
+/// A word with the colours of its letters and of the paper around it ([`line_colours`]).
+type Coloured<'a> = (&'a Word, [f64; 3], [f64; 3]);
+
+/// The lower median (the smaller middle value of an even count), ignoring NaNs.
+fn lower_median(mut v: Vec<f32>) -> Option<f32> {
+    v.retain(|x| x.is_finite());
+    v.sort_unstable_by(f32::total_cmp);
+    v.get(v.len().checked_sub(1)? / 2).copied()
+}
+
+/// An [`EditableLine`] of `words` (none if empty): its colours and its em, kept only when it is
+/// within reach of what the word boxes suggest.
+fn measure(rgba: &[u8], width: u32, height: u32, words: Vec<Word>) -> Option<EditableLine> {
+    let rect = words.iter().map(|w| w.rect).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
+    let text = words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ");
+    let (ink, paper) = line_colours(rgba, width, height, rect);
+    let expected = lower_median(words.iter().map(|w| w.rect[3] - w.rect[1]).collect())? / BOX_EM as f32;
+    let em = ink_box(rgba, width, height, rect, ink, paper)
+        .and_then(|tight| em_box(tight, &text))
+        .filter(|e| (0.6..=1.6).contains(&((e.rect[3] - e.rect[1]) / expected)));
+    Some(EditableLine { words, ink, paper, em })
+}
+
 /// Horizontal scaling (`Tz`, percent) is kept within this range, so a misread line doesn't come
 /// out squashed to nothing or stretched across the page.
 const SCALE_RANGE: (f64, f64) = (50.0, 200.0);
@@ -678,6 +843,134 @@ mod tests {
         };
         let s = String::from_utf8(editable_layer(&[line])).unwrap();
         assert!(s.contains(&format!("0 1 -1 0 {} 10 Tm", num(50.0 - DESCENT * 10.0 / BOX_EM))), "{s}");
+    }
+
+    /// White, with blocks of colour at `[left, top, right, bottom]`.
+    fn painted(w: u32, h: u32, rects: &[([u32; 4], [u8; 3])]) -> Vec<u8> {
+        let mut px = vec![255u8; (w * h * 4) as usize];
+        for &([l, t, r, b], colour) in rects {
+            for y in t..b {
+                for x in l..r {
+                    let o = ((y * w + x) * 4) as usize;
+                    px[o..o + 3].copy_from_slice(&colour);
+                }
+            }
+        }
+        px
+    }
+
+    fn ocr_word(text: &str, rect: [u32; 4]) -> Word {
+        Word { text: text.into(), rect: rect.map(|v| v as f32) }
+    }
+
+    fn texts(lines: &[EditableLine]) -> Vec<String> {
+        lines.iter().map(|l| l.words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ")).collect()
+    }
+
+    const INK: [u8; 3] = [20, 20, 20];
+
+    /// A printed word: letters filling its box, a little inside the padding OCR adds.
+    fn printed(rect: [u32; 4]) -> ([u32; 4], [u8; 3]) {
+        ([rect[0] + 2, rect[1] + 2, rect[2] - 2, rect[3] - 2], INK)
+    }
+
+    /// The signature row of a delivery note: a signature through "BY", a faded maroon stamp whose
+    /// date runs into the printed "TIME:" next to it. Only the clean printed words become text.
+    #[test]
+    fn handwriting_and_stamps_stay_in_the_image() {
+        let words = [
+            ("RECEIVED", [10, 40, 90, 60]),
+            ("BY", [100, 10, 180, 90]), // the signature's loops stretch the box
+            ("DATE:", [200, 40, 250, 60]),
+            ("RECEIVED", [300, 40, 380, 60]), // the stamp
+            ("2026TIME:", [387, 40, 440, 60]),
+            ("Thanks", [520, 40, 580, 60]),
+        ];
+        let mut ink: Vec<_> = words.iter().map(|(_, r)| printed(*r)).collect();
+        ink[3].1 = [110, 60, 80];
+        let px = painted(600, 100, &ink);
+        let line = Line { words: words.iter().map(|(t, r)| ocr_word(t, *r)).collect() };
+        let out = editable_lines(&px, 600, 100, &[line]);
+        assert_eq!(texts(&out), ["RECEIVED", "DATE:", "Thanks"]);
+        assert!(out.iter().all(|l| l.ink.iter().all(|c| (c - 20.0 / 255.0).abs() < 0.02)), "{out:?}");
+    }
+
+    /// A table's header row read as one line: split at the cells' borders, which run past the
+    /// letters, but not at a letter's stem that OCR's word box clipped off.
+    #[test]
+    fn table_cells_split_at_rules_not_at_letter_stems() {
+        let words = [
+            ("P.O.", [10, 40, 50, 60]),
+            ("No.", [58, 40, 90, 60]),
+            ("Ship", [130, 40, 170, 60]),
+            ("Date", [178, 40, 215, 60]),
+            ("Via", [280, 40, 310, 60]),
+        ];
+        let mut ink: Vec<_> = words.iter().map(|(_, r)| printed(*r)).collect();
+        ink.push(([54, 42, 57, 58], INK)); // the N's stem, outside its word's box
+        ink.push(([115, 20, 117, 80], INK)); // the border between the cells
+        let px = painted(330, 100, &ink);
+        let line = Line { words: words.iter().map(|(t, r)| ocr_word(t, *r)).collect() };
+        // "Via" is more than 2.5 line heights from "Date": a separate field, though no rule.
+        assert_eq!(texts(&editable_lines(&px, 330, 100, &[line])), ["P.O. No.", "Ship Date", "Via"]);
+    }
+
+    /// A stamp's date printed over a label, read as a word on a line of its own, is left with the
+    /// stamp; a digit OCR didn't read between two words keeps showing (the line splits around it).
+    #[test]
+    fn stamp_neighbours_on_other_lines_and_unread_ink_stay_visible() {
+        let stamp = ([300, 40, 380, 60], [110, 60, 80]);
+        let after = [10, 140, 60, 160];
+        let days = [100, 140, 150, 160];
+        let px = painted(
+            400,
+            200,
+            &[stamp, printed([386, 41, 398, 59]), printed(after), ([70, 143, 80, 157], INK), printed(days), printed([10, 40, 60, 60])],
+        );
+        let lines = [
+            Line { words: vec![ocr_word("Date:", [10, 40, 60, 60]), ocr_word("RECEIVED", stamp.0)] },
+            Line { words: vec![ocr_word("THMD", [386, 41, 398, 59])] },
+            Line { words: vec![ocr_word("after", after), ocr_word("days", days)] },
+        ];
+        assert_eq!(texts(&editable_lines(&px, 400, 200, &lines)), ["Date:", "after", "days"]);
+    }
+
+    /// A speck read as a letter is left alone, and an em the boxes can't explain (here a dash's
+    /// thin ink measured as a whole line's letters) gives way to the boxes' estimate.
+    #[test]
+    fn specks_and_implausible_ems_are_left_out() {
+        let px = painted(400, 100, &[printed([10, 40, 90, 60]), printed([100, 40, 160, 60]), ([200, 49, 280, 51], INK), ([300, 50, 304, 54], INK)]);
+        let lines = [
+            Line { words: vec![ocr_word("Total", [10, 40, 90, 60]), ocr_word("due", [100, 40, 160, 60])] },
+            Line { words: vec![ocr_word("FEES", [198, 40, 282, 60])] },
+            Line { words: vec![ocr_word("e", [299, 49, 305, 55])] },
+        ];
+        let out = editable_lines(&px, 400, 100, &lines);
+        assert_eq!(texts(&out), ["Total due", "FEES"]);
+        assert!(out[0].em.is_some() && out[1].em.is_none(), "{out:?}");
+    }
+
+    /// Never-panic: NaN and huge boxes, short or empty buffers, no words.
+    #[test]
+    fn editable_lines_survive_bad_input() {
+        let px = painted(50, 50, &[printed([5, 10, 40, 30])]);
+        let line = Line {
+            words: vec![
+                ocr_word("ok", [5, 10, 40, 30]),
+                Word { text: "nan".into(), rect: [f32::NAN, 0.0, 10.0, 10.0] },
+                Word { text: "inf".into(), rect: [0.0, 0.0, f32::INFINITY, 10.0] },
+                Word { text: "flat".into(), rect: [10.0, 10.0, 5.0, 5.0] },
+            ],
+        };
+        assert_eq!(texts(&editable_lines(&px, 50, 50, std::slice::from_ref(&line))), ["ok"]);
+        // A page-sized box over the word: both are left in the image.
+        let mut line = line;
+        line.words.push(Word { text: "huge".into(), rect: [0.0, 0.0, 1e9, 1e9] });
+        assert!(editable_lines(&px, 50, 50, std::slice::from_ref(&line)).is_empty());
+        let _ = editable_lines(&px[..10], 50, 50, std::slice::from_ref(&line));
+        let _ = editable_lines(&[], 0, 0, std::slice::from_ref(&line));
+        let _ = editable_lines(&px, u32::MAX, u32::MAX, std::slice::from_ref(&line));
+        assert!(editable_lines(&px, 50, 50, &[Line::default()]).is_empty());
     }
 
     #[test]

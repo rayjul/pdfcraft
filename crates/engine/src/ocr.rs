@@ -138,15 +138,13 @@ impl OcrJob {
             let words = lines.iter().flat_map(|l| &l.words).map(|w| PlacedWord::place(w, to_user)).collect();
             let lines = match self.settings.output {
                 OcrOutput::SearchableImage => Vec::new(),
-                OcrOutput::EditableText => lines
-                    .iter()
-                    .filter_map(|l| {
-                        let rect = l.words.iter().map(|w| w.rect).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
-                        let (ink, paper) = pdfcraft_ocr::line_colours(&shot.rgba, shot.width, shot.height, rect);
-                        let em = pdfcraft_ocr::ink_box(&shot.rgba, shot.width, shot.height, rect, ink, paper)
-                            .and_then(|tight| pdfcraft_ocr::em_box(tight, &l.text()))
-                            .map(|e| PlacedWord::place(&e, to_user));
-                        Some(PlacedLine { words: l.words.iter().map(|w| PlacedWord::place(w, to_user)).collect(), ink, paper, em })
+                OcrOutput::EditableText => pdfcraft_ocr::editable_lines(&shot.rgba, shot.width, shot.height, &lines)
+                    .into_iter()
+                    .map(|l| PlacedLine {
+                        words: l.words.iter().map(|w| PlacedWord::place(w, to_user)).collect(),
+                        ink: l.ink,
+                        paper: l.paper,
+                        em: l.em.map(|e| PlacedWord::place(&e, to_user)),
                     })
                     .collect(),
             };
