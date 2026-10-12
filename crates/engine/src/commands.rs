@@ -350,7 +350,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     c("help.github", "PdfCraft on GitHub", None, None, Nothing, "code-xml"),
     c("help.website", "ArtCraft website", None, None, Nothing, "external-link"),
     c("help.check_updates", "Check for updates…", None, None, Nothing, "cloud"),
-    c("help.about", "About PdfCraft", None, None, Nothing, "info"),
+    c("help.about", "About PdfTakari", None, None, Nothing, "info"),
 ];
 
 pub fn command(id: &str) -> Option<&'static CommandSpec> {

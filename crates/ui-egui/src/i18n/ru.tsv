@@ -146,7 +146,7 @@
 	Next page	Следующая страница
 	Previous page	Предыдущая страница
 	Current page — type a page number or label (such as iv) and press Enter	Текущая страница — введите номер или метку страницы (например, iv) и нажмите Enter
-	Welcome to PdfCraft	Добро пожаловать в PdfCraft
+	Welcome to PdfTakari	Добро пожаловать в PdfTakari
 	An open-source PDF workbench — local, private, and scriptable.	Открытый PDF-редактор — локальный, приватный и программируемый.
 	Join the ArtCraft community	Присоединяйтесь к сообществу ArtCraft
 	Get help, share feedback and follow development on Discord.	Получайте помощь, делитесь отзывами и следите за разработкой в Discord.
@@ -154,9 +154,9 @@
 	Use now	Использовать сейчас
 	Open file	Открыть файл
 	Recent	Недавние
-	Files you open in PdfCraft appear here. Drop a PDF anywhere to open it.	Файлы, которые вы открываете в PdfCraft, появляются здесь. Перетащите PDF в любое место, чтобы открыть.
+	Files you open in PdfTakari appear here. Drop a PDF anywhere to open it.	Файлы, которые вы открываете в PdfTakari, появляются здесь. Перетащите PDF в любое место, чтобы открыть.
 	Privacy	Конфиденциальность
-	PdfCraft works offline. No telemetry, no account, and no cloud processing unless you add a provider.	PdfCraft работает офлайн. Без телеметрии, аккаунтов и облачной обработки, если вы не добавите провайдера.
+	PdfTakari works offline. No telemetry, no account, and no cloud processing unless you add a provider.	PdfTakari работает офлайн. Без телеметрии, аккаунтов и облачной обработки, если вы не добавите провайдера.
 	Scripts run in a sandbox without file or network access. With JavaScript off, Acrobat's standard format, validate and calculate functions still work.	Скрипты выполняются в песочнице без доступа к файлам и сети. При отключённом JavaScript стандартные функции Acrobat форматирования, проверки и вычислений всё равно работают.
 	Back to all tools	Назад ко всем инструментам
 	Close panel	Закрыть панель
@@ -295,7 +295,7 @@
 	PdfCraft on GitHub	PdfCraft на GitHub
 	ArtCraft website	Веб-сайт ArtCraft
 	Check for updates…	Проверить обновления…
-	About PdfCraft	О программе PdfCraft
+	About PdfTakari	О программе PdfTakari
 	Export a PDF	Экспортировать PDF
 	Export to	Экспортировать в
 	Microsoft Word (.docx)	Microsoft Word (.docx)
@@ -738,9 +738,9 @@
 	Check for updates	Проверить обновления
 	No check has run yet.	Проверка ещё не выполнялась.
 	Checking for a newer version…	Проверка новой версии…
-	PdfCraft {v} is available.	Доступна PdfCraft {v}.
+	PdfTakari {v} is available.	Доступна PdfTakari {v}.
 	You have version {c}. Download the new version from its release page.	У вас версия {c}. Скачайте новую версию со страницы релизов.
-	PdfCraft {c} is up to date.	У вас последняя версия PdfCraft {c}.
+	PdfTakari {c} is up to date.	У вас последняя версия PdfTakari {c}.
 	Couldn't check for updates: {e}	Не удалось проверить обновления: {e}
 	You have version {c}. All releases are listed at {page}.	У вас версия {c}. Все релизы перечислены на {page}.
 	Asks GitHub for the latest release. Nothing is downloaded or installed automatically.	Запрашивает у GitHub последний релиз. Ничего не скачивается и не устанавливается автоматически.
@@ -847,8 +847,8 @@
 	No changes allowed	Изменения не разрешены
 	Annotations, form fill-in, and digital signatures	Аннотации, заполнение форм и цифровые подписи
 	Form fill-in and digital signatures	Заполнение форм и цифровые подписи
-	The key is in the macOS Keychain, which may ask to allow PdfCraft to use it.	Ключ находится в Keychain macOS, который может запросить разрешение на использование PdfCraft.
-	The key is in the Windows certificate store, which may ask to allow PdfCraft to use it.	Ключ находится в хранилище сертификатов Windows, которое может запросить разрешение на использование PdfCraft.
+	The key is in the macOS Keychain, which may ask to allow PdfTakari to use it.	Ключ находится в Keychain macOS, который может запросить разрешение на использование PdfTakari.
+	The key is in the Windows certificate store, which may ask to allow PdfTakari to use it.	Ключ находится в хранилище сертификатов Windows, которое может запросить разрешение на использование PdfTakari.
 	Digital ID password	Пароль цифрового идентификатора
 	Back	Назад
 	Validate all	Проверить все
@@ -1215,7 +1215,7 @@
 	Recognize text in scanned pages	Распознавать текст на отсканированных страницах
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Заменяет отсканированные слова текстом, который можно изменить с помощью «Редактировать текст»; изображения на странице сохраняются
 	Downsample to	Уменьшить до
-	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Распознавание текста не установлено: отсутствуют файлы моделей. Переустановите PdfCraft или задайте в PDFCRAFT_MODELS папку, в которой они лежат.
+	Text recognition isn't installed: its model files are missing. Reinstall PdfTakari, or set PDFCRAFT_MODELS to the folder that holds them.	Распознавание текста не установлено: отсутствуют файлы моделей. Переустановите PdfTakari или задайте в PDFCRAFT_MODELS папку, в которой они лежат.
 	Settings	Настройки
 	Optional	Опционально
 	Planned · {m}	Запланировано · {m}
@@ -1359,7 +1359,7 @@
 	Anyone opening the document will need this password. It's applied when you save.	Любой, кто открывает документ, будет нуждаться в этом пароле. Он применяется при сохранении.
 	The document opens without a password; this password is needed to change the restrictions. It's applied when you save.	Документ открывается без пароля; этот пароль нужен для изменения ограничений. Он применяется при сохранении.
 	Recover unsaved documents?	Восстановить несохранённые документы?
-	PdfCraft didn't shut down normally. These documents had changes that were autosaved:	PdfCraft завершился некорректно. В этих документах были изменения, сохранённые автоматически:
+	PdfTakari didn't shut down normally. These documents had changes that were autosaved:	PdfTakari завершился некорректно. В этих документах были изменения, сохранённые автоматически:
 	just now	только что
 	{n} min ago	{n} мин назад
 	{n} h ago	{n} ч назад
@@ -1517,10 +1517,10 @@
 	On the web, open or drop an image to convert it	В веб-версии откройте или перетащите изображение для конвертации
 	Couldn't optimize the file: {e}	Не удалось оптимизировать файл: {e}
 	Couldn't write {path}: {e}	Не удалось записать {path}: {e}
-	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	Форма просит отправить данные на {u}; PdfCraft не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
+	The form asks to be submitted to {u}; PdfTakari doesn't send form data. Save the document to keep your entries.	Форма просит отправить данные на {u}; PdfTakari не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
 	{s} actions run in the JavaScript engine (M6)	{s} действий выполняется в движке JavaScript (M6)
 	{name}: the {other} action isn't supported yet	{name}: действие {other} пока не поддерживается
-	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} отправляет форму на {url}; PdfCraft не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
+	{name} submits the form to {url}; PdfTakari doesn't send form data. Save the document to keep your entries.	{name} отправляет форму на {url}; PdfTakari не отправляет данные форм. Сохраните документ, чтобы сохранить введённые данные.
 	Export stopped: {e}	Экспорт остановлен: {e}
 	Exported 1 image	Экспортировано 1 изображение
 	Exported {n} images	Экспортировано {n} изображений
@@ -1733,8 +1733,8 @@
 	Signed and all signatures are valid.	Подписано и все подписи действительны.
 	At least one signature has problems.	Хотя бы одна подпись имеет проблемы.
 	This document is secured. Some changes are restricted by its security settings.	Этот документ защищён. Некоторые изменения ограничены его настройками безопасности.
-	This is a dynamic XFA form, which PdfCraft can't display yet. What you see is the file's placeholder page.	Это динамическая форма XFA, которую PdfCraft пока не может отобразить. То, что вы видите, — заглушка страницы файла.
-	This form also contains XFA data, which PdfCraft doesn't read yet. You can fill its fields, but Acrobat may show the XFA values instead.	Эта форма также содержит данные XFA, которые PdfCraft пока не читает. Вы можете заполнить её поля, но Acrobat может показать значения XFA вместо них.
+	This is a dynamic XFA form, which PdfTakari can't display yet. What you see is the file's placeholder page.	Это динамическая форма XFA, которую PdfTakari пока не может отобразить. То, что вы видите, — заглушка страницы файла.
+	This form also contains XFA data, which PdfTakari doesn't read yet. You can fill its fields, but Acrobat may show the XFA values instead.	Эта форма также содержит данные XFA, которые PdfTakari пока не читает. Вы можете заполнить её поля, но Acrobat может показать значения XFA вместо них.
 	This document contains {n} interactive form fields.	Этот документ содержит {n} интерактивных полей формы.
 	This file was damaged and has been repaired. Saving keeps the repaired version.	Этот файл был повреждён и восстановлен. Сохранение сохраняет восстановленную версию.
 	Dismiss	Закрыть
@@ -1783,7 +1783,7 @@
 	there are no pages to print	нет страниц для печати
 	the document has no tags	у документа нет тегов
 	{0}: {1}	{0}: {1}
-	the text recognition models are not installed (reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them)	модели распознавания текста не установлены (переустановите PdfCraft или задайте в PDFCRAFT_MODELS папку, в которой они лежат)
+	the text recognition models are not installed (reinstall PdfTakari, or set PDFCRAFT_MODELS to the folder that holds them)	модели распознавания текста не установлены (переустановите PdfTakari или задайте в PDFCRAFT_MODELS папку, в которой они лежат)
 	the image is empty	изображение пустое
 	this file isn't XFDF, FDF, XML or text form data	этот файл не является XFDF, FDF, XML или текстовыми данными формы
 	nothing in the file matches this document	ничего в файле не соответствует этому документу
@@ -2001,7 +2001,7 @@
 	Default page display	Отображение страниц по умолчанию
 	Default zoom	Масштаб по умолчанию
 	Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages.	Используется, когда PDF не запрашивает макет или масштаб. Непрерывная прокрутка никогда не привязывается между страницами.
-	Reopen the files that were open when PdfCraft last closed	Повторно открывать файлы, которые были открыты при последнем закрытии PdfCraft
+	Reopen the files that were open when PdfTakari last closed	Повторно открывать файлы, которые были открыты при последнем закрытии PdfTakari
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	Выберите изображение PNG или JPEG (до 4 МиБ). Прозрачность сохраняется.
 	Couldn't import the signature image: {e}	Не удалось импортировать изображение подписи: {e}
 

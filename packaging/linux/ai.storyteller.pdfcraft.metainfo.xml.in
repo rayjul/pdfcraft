@@ -5,7 +5,7 @@
   <id>ai.storyteller.pdfcraft</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT OR Apache-2.0</project_license>
-  <name>PdfCraft</name>
+  <name>PdfTakari</name>
   <summary>Read, organize, combine, split and secure PDFs</summary>
   <developer id="ai.storyteller">
     <name>Learning Machines LLC</name>

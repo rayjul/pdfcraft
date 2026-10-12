@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=PdfCraft
+Name=PdfTakari
 GenericName=PDF Editor
 Comment=Read, organize, combine, split and secure PDFs
 Exec=pdfcraft %U

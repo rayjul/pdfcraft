@@ -234,6 +234,15 @@ pub fn artcraft_logo(ui: &mut egui::Ui, height: f32) -> Response {
     ui.add(egui::Image::from_bytes(uri, bytes).max_height(height).alt_text("ArtCraft"))
 }
 
+/// The PdfTakari logo (the Takari mark, assets/app-icon/takari-mark.svg), `size` points square.
+pub fn app_mark(ui: &mut egui::Ui, size: f32) -> Response {
+    ui.add(
+        egui::Image::from_bytes("bytes://takari-mark.svg", include_bytes!("../../../assets/app-icon/takari-mark.svg"))
+            .fit_to_exact_size(vec2(size, size))
+            .alt_text("PdfTakari"),
+    )
+}
+
 /// The ArtCraft mark (brand blue, works on light and dark), `size` points square.
 pub fn artcraft_mark(ui: &mut egui::Ui, size: f32) -> Response {
     ui.add(

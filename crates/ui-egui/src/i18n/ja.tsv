@@ -152,7 +152,7 @@
 	Next page	次のページ
 	Previous page	前のページ
 	Current page — type a page number or label (such as iv) and press Enter	現在のページ：ページ番号またはラベル（例：iv）を入力して Enter
-	Welcome to PdfCraft	PdfCraft へようこそ
+	Welcome to PdfTakari	PdfTakari へようこそ
 	An open-source PDF workbench — local, private, and scriptable.	ローカルで処理し、プライバシーを守る、スクリプト対応のオープンソース PDF ツール。
 	Join the ArtCraft community	ArtCraft コミュニティに参加
 	Get help, share feedback and follow development on Discord.	Discord で質問やフィードバックを共有し、開発の進捗を確認できます。
@@ -160,9 +160,9 @@
 	Use now	使用する
 	Open file	ファイルを開く
 	Recent	最近使ったファイル
-	Files you open in PdfCraft appear here. Drop a PDF anywhere to open it.	PdfCraft で開いたファイルがここに表示されます。PDF をウィンドウにドロップして開くこともできます。
+	Files you open in PdfTakari appear here. Drop a PDF anywhere to open it.	PdfTakari で開いたファイルがここに表示されます。PDF をウィンドウにドロップして開くこともできます。
 	Privacy	プライバシー
-	PdfCraft works offline. No telemetry, no account, and no cloud processing unless you add a provider.	PdfCraft はオフラインで動作します。使用状況の送信やアカウント登録はありません。サービス提供元を追加しない限り、クラウド処理も行いません。
+	PdfTakari works offline. No telemetry, no account, and no cloud processing unless you add a provider.	PdfTakari はオフラインで動作します。使用状況の送信やアカウント登録はありません。サービス提供元を追加しない限り、クラウド処理も行いません。
 	Scripts run in a sandbox without file or network access. With JavaScript off, Acrobat's standard format, validate and calculate functions still work.	スクリプトはファイルやネットワークにアクセスできないサンドボックスで実行されます。JavaScript を無効にしても、Acrobat の標準の書式設定・検証・計算関数は使用できます。
 	Back to all tools	すべてのツールに戻る
 	Close panel	パネルを閉じる
@@ -301,7 +301,7 @@
 	PdfCraft on GitHub	GitHub の PdfCraft
 	ArtCraft website	ArtCraft のウェブサイト
 	Check for updates…	更新を確認…
-	About PdfCraft	PdfCraft について
+	About PdfTakari	PdfTakari について
 	Export a PDF	PDF を書き出す
 	Export to	書き出し形式
 	Microsoft Word (.docx)	Microsoft Word（.docx）
@@ -744,9 +744,9 @@
 	Check for updates	アップデートを確認
 	No check has run yet.	まだ確認していません。
 	Checking for a newer version…	新しいバージョンを確認中…
-	PdfCraft {v} is available.	PdfCraft {v} が利用できます。
+	PdfTakari {v} is available.	PdfTakari {v} が利用できます。
 	You have version {c}. Download the new version from its release page.	現在のバージョンは {c} です。リリースページから新しいバージョンをダウンロードしてください。
-	PdfCraft {c} is up to date.	PdfCraft {c} は最新です。
+	PdfTakari {c} is up to date.	PdfTakari {c} は最新です。
 	Couldn't check for updates: {e}	アップデートを確認できませんでした: {e}
 	You have version {c}. All releases are listed at {page}.	現在のバージョンは {c} です。すべてのリリースは {page} に掲載されています。
 	Asks GitHub for the latest release. Nothing is downloaded or installed automatically.	GitHub で最新リリースを確認します。自動でダウンロードやインストールは行いません。
@@ -853,8 +853,8 @@
 	No changes allowed	変更を許可しない
 	Annotations, form fill-in, and digital signatures	注釈、フォーム入力、デジタル署名
 	Form fill-in and digital signatures	フォーム入力とデジタル署名
-	The key is in the macOS Keychain, which may ask to allow PdfCraft to use it.	鍵は macOS のキーチェーンに保存されています。PdfCraft に使用を許可するか確認される場合があります。
-	The key is in the Windows certificate store, which may ask to allow PdfCraft to use it.	鍵は Windows の証明書ストアに保存されています。PdfCraft に使用を許可するか確認される場合があります。
+	The key is in the macOS Keychain, which may ask to allow PdfTakari to use it.	鍵は macOS のキーチェーンに保存されています。PdfTakari に使用を許可するか確認される場合があります。
+	The key is in the Windows certificate store, which may ask to allow PdfTakari to use it.	鍵は Windows の証明書ストアに保存されています。PdfTakari に使用を許可するか確認される場合があります。
 	Digital ID password	デジタル ID のパスワード
 	Back	戻る
 	Validate all	すべて検証
@@ -1214,7 +1214,7 @@
 	Recognize text in scanned pages	スキャンしたページのテキストを認識
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	スキャンされた文字を「テキストを編集」で変更できるテキストに置き換えます。ページ上の画像は保持されます
 	Downsample to	ダウンサンプル:
-	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	テキスト認識がインストールされていません。モデルファイルがありません。PdfCraft を再インストールするか、PDFCRAFT_MODELS にモデルファイルのあるフォルダーを設定してください。
+	Text recognition isn't installed: its model files are missing. Reinstall PdfTakari, or set PDFCRAFT_MODELS to the folder that holds them.	テキスト認識がインストールされていません。モデルファイルがありません。PdfTakari を再インストールするか、PDFCRAFT_MODELS にモデルファイルのあるフォルダーを設定してください。
 	Settings	設定
 	Optional	任意
 	Planned · {m}	予定 · {m}
@@ -1358,7 +1358,7 @@
 	Anyone opening the document will need this password. It's applied when you save.	文書を開く際にこのパスワードが必要になります。保存時に適用されます。
 	The document opens without a password; this password is needed to change the restrictions. It's applied when you save.	文書はパスワードなしで開けます。制限を変更する際にこのパスワードが必要になります。保存時に適用されます。
 	Recover unsaved documents?	未保存の文書を復元しますか？
-	PdfCraft didn't shut down normally. These documents had changes that were autosaved:	PdfCraft が正常に終了しませんでした。次の文書の変更内容が自動保存されています:
+	PdfTakari didn't shut down normally. These documents had changes that were autosaved:	PdfTakari が正常に終了しませんでした。次の文書の変更内容が自動保存されています:
 	just now	たった今
 	{n} min ago	{n} 分前
 	{n} h ago	{n} 時間前
@@ -1516,10 +1516,10 @@
 	On the web, open or drop an image to convert it	Web 版では画像を開くかドロップして変換してください
 	Couldn't optimize the file: {e}	ファイルを最適化できませんでした: {e}
 	Couldn't write {path}: {e}	{path} に書き込めませんでした: {e}
-	The form asks to be submitted to {u}; PdfCraft doesn't send form data. Save the document to keep your entries.	フォームは {u} への送信を要求していますが、PdfCraft はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
+	The form asks to be submitted to {u}; PdfTakari doesn't send form data. Save the document to keep your entries.	フォームは {u} への送信を要求していますが、PdfTakari はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
 	{s} actions run in the JavaScript engine (M6)	{s} 件のアクションは JavaScript エンジンで実行します（M6）
 	{name}: the {other} action isn't supported yet	{name}: {other} アクションにはまだ対応していません
-	{name} submits the form to {url}; PdfCraft doesn't send form data. Save the document to keep your entries.	{name} はフォームを {url} に送信しますが、PdfCraft はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
+	{name} submits the form to {url}; PdfTakari doesn't send form data. Save the document to keep your entries.	{name} はフォームを {url} に送信しますが、PdfTakari はフォームデータを送信しません。入力内容を保持するには文書を保存してください。
 	Export stopped: {e}	書き出しを中止しました: {e}
 	Exported 1 image	画像を 1 件書き出しました
 	Exported {n} images	画像を {n} 件書き出しました
@@ -1675,7 +1675,7 @@
 	Couldn't open {name}: {e}	{name} を開けませんでした: {e}
 	Couldn't read {name}: {e}	{name} を読み取れませんでした: {e}
 	Portable mode is off: {folder} can't be written ({error}). Settings are kept in your user folder instead.	ポータブルモードは無効です: {folder} に書き込めません ({error})。設定は代わりにユーザーフォルダーに保存されます。
-	PdfCraft is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.	PdfCraft はグラフィックプロセッサーを使わずに描画しているため、動作が遅くなることがあります。グラフィックドライバーを更新すると改善する場合があります。
+	PdfTakari is drawing without a graphics processor, so it may be slow. Updating the graphics driver may help.	PdfTakari はグラフィックプロセッサーを使わずに描画しているため、動作が遅くなることがあります。グラフィックドライバーを更新すると改善する場合があります。
 	Couldn't save: {e}	保存できませんでした: {e}
 	Downloading attachments on the web arrives with M3.10 ({n} bytes ready)	Web 版の添付ファイルのダウンロードは M3.10 で対応予定です（{n} バイト準備済み）
 	`{command}` {when}	`{command}`: {when}
@@ -1743,8 +1743,8 @@
 	Signed and all signatures are valid.	署名済みで、すべての署名が有効です。
 	At least one signature has problems.	問題のある署名があります。
 	This document is secured. Some changes are restricted by its security settings.	この文書は保護されています。セキュリティ設定により一部の変更が制限されています。
-	This is a dynamic XFA form, which PdfCraft can't display yet. What you see is the file's placeholder page.	この文書は動的 XFA フォームで、PdfCraft はまだ表示できません。現在はファイルの代替ページを表示しています。
-	This form also contains XFA data, which PdfCraft doesn't read yet. You can fill its fields, but Acrobat may show the XFA values instead.	このフォームには PdfCraft がまだ読み取れない XFA データも含まれます。フィールドには入力できますが、Acrobat は代わりに XFA の値を表示する場合があります。
+	This is a dynamic XFA form, which PdfTakari can't display yet. What you see is the file's placeholder page.	この文書は動的 XFA フォームで、PdfTakari はまだ表示できません。現在はファイルの代替ページを表示しています。
+	This form also contains XFA data, which PdfTakari doesn't read yet. You can fill its fields, but Acrobat may show the XFA values instead.	このフォームには PdfTakari がまだ読み取れない XFA データも含まれます。フィールドには入力できますが、Acrobat は代わりに XFA の値を表示する場合があります。
 	This document contains {n} interactive form fields.	この文書には対話型フォームフィールドが {n} 個あります。
 	This file was damaged and has been repaired. Saving keeps the repaired version.	このファイルは破損していたため修復しました。保存すると修復済みの状態が保持されます。
 	Dismiss	閉じる
@@ -1793,7 +1793,7 @@
 	there are no pages to print	印刷するページはありません
 	the document has no tags	文書にタグはありません
 	{0}: {1}	{0}: {1}
-	the text recognition models are not installed (reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them)	テキスト認識モデルがインストールされていません（PdfCraft を再インストールするか、PDFCRAFT_MODELS にモデルのあるフォルダーを設定してください）
+	the text recognition models are not installed (reinstall PdfTakari, or set PDFCRAFT_MODELS to the folder that holds them)	テキスト認識モデルがインストールされていません（PdfTakari を再インストールするか、PDFCRAFT_MODELS にモデルのあるフォルダーを設定してください）
 	the image is empty	画像が空です
 	this file isn't XFDF, FDF, XML or text form data	このファイルは XFDF、FDF、XML、テキストのフォームデータではありません
 	nothing in the file matches this document	この文書に一致する項目がファイルにありません
@@ -1997,7 +1997,7 @@
 	Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.	PNG または JPEG 画像を選択してください（最大 4 MiB）。透明度は保持されます。
 	Couldn't import the signature image: {e}	署名画像を読み込めませんでした: {e}
 	Go to page…	ページへ移動…
-	Reopen the files that were open when PdfCraft last closed	前回 PdfCraft を閉じたときに開いていたファイルを再度開く
+	Reopen the files that were open when PdfTakari last closed	前回 PdfTakari を閉じたときに開いていたファイルを再度開く
 	The standard fonts can't draw “{c}” ({code}). Only Western European characters can be added as text for now.	標準フォントでは「{c}」（{code}）を表示できません。現在、テキストとして追加できるのは西ヨーロッパの文字のみです。
 	Open arrow	開いた矢印
 	Closed arrow	閉じた矢印
@@ -2116,8 +2116,8 @@
 	Write this email?	このメールを作成しますか？
 	XFA form: its fields and its XFA data are kept in step, so other viewers show what you fill in.	XFA フォームです。フィールドと XFA データは常に同期されるため、入力した内容がほかのビューアーでも表示されます。
 	{n} contributors · {c} commits	貢献者 {n} 人 · コミット {c} 件
-	{who} in this document tried to open an address PdfCraft won't open: {e}.	この文書内の{who}が、PdfCraft では開けないアドレスを開こうとしました：{e}。
-	{who} in this document tried to open an address PdfCraft won't open: {e}. Only web (http, https) and email (mailto) links open from documents.	この文書内の{who}が、PdfCraft では開けないアドレスを開こうとしました：{e}。文書から開けるのは、ウェブ（http、https）とメール（mailto）のリンクだけです。
+	{who} in this document tried to open an address PdfTakari won't open: {e}.	この文書内の{who}が、PdfTakari では開けないアドレスを開こうとしました：{e}。
+	{who} in this document tried to open an address PdfTakari won't open: {e}. Only web (http, https) and email (mailto) links open from documents.	この文書内の{who}が、PdfTakari では開けないアドレスを開こうとしました：{e}。文書から開けるのは、ウェブ（http、https）とメール（mailto）のリンクだけです。
 	{who} in this document wants to open this address in your browser:	この文書内の{who}が、次のアドレスをブラウザーで開こうとしています：
 	{who} in this document wants to open your email app with this address:	この文書内の{who}が、次のアドレスでメールアプリを開こうとしています：
 	ΔLOC	ΔLOC

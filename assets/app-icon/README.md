@@ -1,35 +1,31 @@
-# PdfCraft app icon
+# PdfTakari app icon
 
-<img src="pdfcraft-small.svg" alt="PdfCraft app icon: an engraved lion's head on green" width="128">
+<img src="pdfcraft-small.svg" alt="PdfTakari app icon: the Takari logo, white rays from a small circle on red" width="128">
 
-**Creature:** a lion, in a frontal head-and-shoulders portrait, mane running off the bottom of the tile.
-
-**Style:** an engraving (woodcut-weight line work) portrait in the Crafting Apps "owl template" framing:
-a full-bleed colour field, no frame or roundel, the animal looking at the viewer and filling the tile.
-
-**Palette:** exactly three colours.
+**Design:** the Takari logo: a red square with white rays fanning out from a small white circle
+near its top right, and a white notch cut from the top edge down to the circle.
 
 | Colour | Hex | Used for |
 |---|---|---|
-| Ink | `#0b0b0c` | line work and the figure's contour |
-| Paper | `#efe9dc` | the figure (the lion's silhouette) |
-| PdfCraft green (app colour) | `#12a58a` | the full-bleed field |
+| Takari red | `#ED1C24` | the field |
+| White | `#ffffff` | the rays, notch and circle |
 
-**Tile:** `viewBox="0 0 512 512"`, a rounded square with `rx=112` that clips everything. Windows and Linux
-icons use the full-bleed tile. macOS icons put it on Apple's grid (an 824 px body centred on a transparent
-1024 px canvas).
+**Files of the logo:** `takari-mark.svg` is the square mark (viewBox 217×217), used in the app's
+About dialog. The app-icon master `pdfcraft.svg` is the same drawing on the usual tile:
+`viewBox="0 0 512 512"`, a rounded square with `rx=112` that clips everything. Windows and Linux
+icons use the full-bleed tile. macOS icons put it on Apple's grid (an 824 px body centred on a
+transparent 1024 px canvas). The file names keep `pdfcraft` so packaging needn't change.
 
-**Provenance:** the project owner's original drawing, made in ArtCraft (2880 px, keyed to the palette), then
-vectorised with craftrules `assets/logo-options/_tools/vectorize_tile.py` (potrace; no filtering or
-warping). The source drawing is kept in craftrules at `assets/app-icons/pdfcraft/source.png`, not here.
+**Provenance:** the project owner's Takari logo, redrawn as a vector from their picture.
 Licence: [LICENSE.txt](LICENSE.txt) (`MIT OR Apache-2.0`, like the repo).
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `pdfcraft.svg` | the master vector (traced at 2048 px); every PNG, `.ico` and `.icns` is rendered from it |
-| `pdfcraft-small.svg` | a lighter vector (traced at 1024 px) for places where size matters, such as this README |
+| `takari-mark.svg` | the square Takari mark, shown in the About dialog |
+| `pdfcraft.svg` | the master vector; every PNG, `.ico` and `.icns` is rendered from it |
+| `pdfcraft-small.svg` | a copy of the master for places that link it, such as this README |
 | `pdfcraft-1024.png` | 1024 px on Apple's grid; also the runtime Dock icon on macOS |
 | `pdfcraft.icns` | macOS icon (16–1024 px) |
 | `pdfcraft.ico` | Windows icon (16–256 px), embedded in `pdfcraft.exe` by `apps/pdfcraft/build.rs` |

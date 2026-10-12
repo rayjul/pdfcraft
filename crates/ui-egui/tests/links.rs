@@ -50,7 +50,8 @@ fn about_dialog_shows_the_brand_and_links() {
         app.open_bytes("one.pdf", None, pdf.to_vec()).unwrap();
         app.dialog = Some(Dialog::About);
     });
-    assert!(h.query_all_by_label("ArtCraft").count() >= 2, "the mark and the wordmark (alt text)");
+    assert!(h.query_all_by_label("PdfTakari").count() >= 2, "the PdfTakari logo (alt text) and name");
+    assert!(h.query_by_label("ArtCraft").is_some(), "the ArtCraft wordmark (alt text)");
     h.get_by_label("Join our Discord").click();
     h.run_steps(2);
     assert_eq!(h.state().last_opened_url.as_deref(), Some(links::DISCORD));
