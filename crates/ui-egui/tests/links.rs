@@ -27,18 +27,11 @@ fn top_bar_and_help_menu_have_no_community_links() {
 }
 
 #[test]
-fn home_screen_links() {
-    for (label, url) in [
-        ("Join our Discord", links::DISCORD),
-        ("PdfCraft web page", "https://getartcraft.com/apps/pdfcraft"),
-        ("PdfCraft on GitHub", "https://github.com/storytold/pdfcraft"),
-        ("ArtCraft website", "https://getartcraft.com"),
-    ] {
-        let mut h = harness(|_| {});
-        h.get_by_label("Join the ArtCraft community");
-        h.get_by_label(label).click();
-        h.run_steps(2);
-        assert_eq!(h.state().last_opened_url.as_deref(), Some(url), "{label}");
+fn home_screen_has_no_community_card() {
+    let h = harness(|_| {});
+    h.get_by_label_contains("Welcome to PdfTakari");
+    for label in ["Join the ArtCraft community", "Join our Discord", "PdfCraft web page", "ArtCraft website"] {
+        assert!(h.query_by_label(label).is_none(), "{label}");
     }
 }
 
