@@ -18,12 +18,12 @@ fn harness(setup: impl FnOnce(&mut PdfCraftApp) + 'static) -> Harness<'static, P
 }
 
 #[test]
-fn discord_button_in_the_top_bar_opens_discord() {
-    let mut h = harness(|_| {});
-    h.get_by_label("Discord").click();
-    h.run_steps(2);
-    assert_eq!(h.state().last_opened_url.as_deref(), Some(links::DISCORD));
+fn top_bar_and_help_menu_have_no_community_links() {
+    let h = harness(|_| {});
+    assert!(h.query_by_label("Discord").is_none(), "no Discord button in the top bar");
     assert_eq!(links::DISCORD, "https://discord.gg/artcraft");
+    let help: Vec<&str> = pdfcraft_engine::commands::COMMANDS.iter().filter(|c| c.menu == Some("Help")).map(|c| c.id).collect();
+    assert_eq!(help, ["help.shortcuts"]);
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn help_commands_open_each_link() {
         let mut h = harness(|_| {});
         assert!(h.state_mut().execute(l.command), "{}", l.command);
         assert_eq!(h.state().last_opened_url.as_deref(), Some(l.url));
-        assert_eq!(pdfcraft_engine::commands::command(l.command).unwrap().menu, Some("Help"));
+        assert_eq!(pdfcraft_engine::commands::command(l.command).unwrap().menu, None, "kept out of the Help menu");
     }
 }
 
