@@ -859,6 +859,7 @@
 	Searchable Image (Exact)	Imagem pesquisável (Exata)
 	Adds invisible text over each word; the page image is not changed	Adiciona texto invisível sobre cada palavra; a imagem da página não é alterada
 	Editable Text and Images	Texto e imagens editáveis
+	Recognize text in scanned pages	Reconhecer texto em páginas digitalizadas
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Substitui as palavras digitalizadas por texto que você pode alterar com Editar texto; as imagens da página são mantidas
 	Downsample to	Reduzir amostragem para
 	Settings	Configurações

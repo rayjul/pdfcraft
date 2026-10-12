@@ -155,6 +155,10 @@ fn tool_detail(app: &mut PdfCraftApp, ui: &mut egui::Ui, t: &Tokens, g: &'static
             } else {
                 ui.label(tl!("Shift-click to select several objects. Drag empty space to select an area."));
             }
+            // Acrobat's Edit pane: Scanned documents ▸ Recognize text.
+            if ui.checkbox(&mut app.edit_recognizes_scans, tl!("Recognize text in scanned pages")).changed() && app.edit_recognizes_scans {
+                app.scans_checked.clear();
+            }
             ui.add_space(6.0);
         }
         format_section(app, ui, t);

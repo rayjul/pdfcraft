@@ -366,6 +366,8 @@ impl PdfCraftApp {
                 self.left = crate::LeftPanel::Tool("edit");
                 self.reveal_tools();
                 self.notify_tr("Click text or an image to edit it");
+                self.scans_checked.clear();
+                self.recognize_scans_for_editing();
             }
             "edit.advanced_search" => {
                 if let Some(i) = self.active {

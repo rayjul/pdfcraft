@@ -499,6 +499,12 @@ pub struct PdfCraftApp {
     /// Scan & OCR: the Recognize Text choices, the running job, and (tests) run it inline.
     pub ocr_draft: ocr_ui::OcrDraft,
     pub ocr_run: Option<ocr_ui::OcrRun>,
+    /// Edit text & images recognises scanned pages as editable text first (as Acrobat's Edit
+    /// PDF does). On by default; remembered.
+    pub edit_recognizes_scans: bool,
+    /// Documents already checked for scanned pages since Edit text & images was last chosen, so
+    /// an undone or failed recognition doesn't start again by itself.
+    pub(crate) scans_checked: Vec<DocId>,
     pub ocr_batch: Option<std::sync::Arc<std::sync::Mutex<ocr_ui::BatchProgress>>>,
     /// Background jobs (OCR, actions, listing pinned folders) run inline instead (tests).
     pub run_inline: bool,
@@ -770,6 +776,8 @@ impl PdfCraftApp {
             a11y_options: a11y_ui::A11yOptions::default(),
             ocr_draft: ocr_ui::OcrDraft::default(),
             ocr_run: None,
+            edit_recognizes_scans: true,
+            scans_checked: Vec::new(),
             ocr_batch: None,
             run_inline: false,
             custom_actions: Vec::new(),
@@ -1392,6 +1400,7 @@ impl PdfCraftApp {
             // Null follows the system's text scaling.
             "ui_scale": self.ui_scale,
             "flatten_fill_sign": self.flatten_fill_sign_on_save,
+            "edit_recognize_scans": self.edit_recognizes_scans,
             "date_format": self.session.date_format(),
             // Null follows the interface language.
             "date_language": self.session.date_language(),
@@ -1481,6 +1490,9 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["flatten_fill_sign"].as_bool() {
             self.flatten_fill_sign_on_save = on;
+        }
+        if let Some(on) = v["edit_recognize_scans"].as_bool() {
+            self.edit_recognizes_scans = on;
         }
         // Settings are untrusted: a size out of range follows the system instead.
         self.ui_scale = v["ui_scale"].as_f64().and_then(ui_scale::valid);
@@ -2037,6 +2049,7 @@ impl eframe::App for PdfCraftApp {
         }
         self.poll_export();
         self.poll_ocr();
+        self.recognize_scans_for_editing();
         self.poll_optimize();
         self.poll_action();
         self.process_file_requests();

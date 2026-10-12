@@ -165,7 +165,37 @@ impl PdfCraftApp {
             OcrPages::Current => vec![self.views[vi].current],
             OcrPages::Range => (d.from.saturating_sub(1)..d.to).collect(),
         };
-        let Some(job) = self.session.ocr_job(id, &pages, d.settings()) else { return };
+        let settings = d.settings();
+        self.run_ocr(id, &pages, settings);
+    }
+
+    /// Edit text & images on a document with scanned pages: recognise them as editable text
+    /// first, as Acrobat's Edit PDF does, so their words can be clicked and changed. Each
+    /// document is checked once per choice of the tool; pages that have text are left alone.
+    pub(crate) fn recognize_scans_for_editing(&mut self) {
+        if self.quick_tool != crate::QuickTool::EditText || !self.edit_recognizes_scans || self.ocr_run.is_some() {
+            return;
+        }
+        let Some((_, id)) = self.active_ids() else { return };
+        if self.scans_checked.contains(&id) {
+            return;
+        }
+        self.scans_checked.push(id);
+        let Some(doc) = self.session.get(id) else { return };
+        if doc.read_only_reason.is_some() || !pdfcraft_engine::ocr::available() {
+            return;
+        }
+        let pages: Vec<usize> = (0..doc.info.pages.len()).filter(|&p| doc.is_scanned_page(p)).collect();
+        if pages.is_empty() {
+            return;
+        }
+        let settings = OcrSettings { output: OcrOutput::EditableText, ..self.ocr_draft.settings() };
+        self.run_ocr(id, &pages, settings);
+    }
+
+    /// Recognize text on `pages` (all when empty) of `id` in the background.
+    fn run_ocr(&mut self, id: DocId, pages: &[usize], settings: OcrSettings) {
+        let Some(job) = self.session.ocr_job(id, pages, settings) else { return };
         let progress = Arc::new(Mutex::new(OcrProgress { total: job.pages.len(), ..Default::default() }));
         let p = progress.clone();
         let work = move || {

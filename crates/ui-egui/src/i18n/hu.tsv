@@ -1181,6 +1181,7 @@
 	Searchable Image (Exact)	Kereshető kép (pontos)
 	Adds invisible text over each word; the page image is not changed	Láthatatlan szöveget helyez minden szóra; az oldalkép nem változik
 	Editable Text and Images	Szerkeszthető szöveg és képek
+	Recognize text in scanned pages	Szövegfelismerés a beolvasott oldalakon
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	A beolvasott szavakat a Szöveg szerkesztése funkcióval módosítható szövegre cseréli; az oldalon lévő képek megmaradnak
 	Downsample to	Feloldás csökkentése erre
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	A szövegfelismerés nincs telepítve: hiányoznak a modellfájljai. Telepítsd újra a PdfCraftot, vagy állítsd a PDFCRAFT_MODELS változót az őket tartalmazó mappára.

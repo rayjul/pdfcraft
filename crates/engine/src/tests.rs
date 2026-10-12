@@ -1869,6 +1869,19 @@ fn scanned(s: &mut Session, text: &str) -> DocId {
     s.open("scan.pdf", None, scan, None).unwrap()
 }
 
+/// Edit text & images recognises scans first: a page that is only a picture is one, a page of
+/// text is not.
+#[test]
+fn a_picture_only_page_is_a_scan() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = scanned(&mut s, "Old words here");
+    assert!(s.get(id).unwrap().is_scanned_page(0));
+    assert!(!s.get(id).unwrap().is_scanned_page(1), "no such page");
+    let t = s.create_from_text("t", "Real text").unwrap();
+    let tid = s.open("text.pdf", None, t, None).unwrap();
+    assert!(!s.get(tid).unwrap().is_scanned_page(0));
+}
+
 /// Editable Text and Images: recognised lines become visible text that Edit text changes, with no
 /// trace of the old words (no models needed: the lines are given).
 #[test]

@@ -1207,6 +1207,7 @@
 	Searchable Image (Exact)	Immagine ricercabile (esatta)
 	Adds invisible text over each word; the page image is not changed	Aggiunge testo invisibile sopra ogni parola; l'immagine della pagina non viene modificata
 	Editable Text and Images	Testo e immagini modificabili
+	Recognize text in scanned pages	Riconosci testo nelle pagine scansionate
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Sostituisce le parole scansionate con testo che puoi cambiare con Modifica testo; le immagini della pagina vengono mantenute
 	Downsample to	Sottocampiona a
 	Settings	Impostazioni

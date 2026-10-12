@@ -97,3 +97,45 @@ fn recognize_text_dialog_can_make_editable_text() {
     assert_eq!(lines.len(), 1, "{lines:?}");
     assert!(lines[0].text.to_lowercase().contains("scanned"), "{lines:?}");
 }
+
+/// Edit text & images on a scan recognises it as editable text by itself (Acrobat's Edit PDF
+/// does the same); with the panel's Recognize text box off it leaves the scan alone.
+#[test]
+fn edit_text_recognizes_a_scanned_page_by_itself() {
+    let build = |on: bool| {
+        Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+            let mut app = PdfCraftApp::new();
+            app.set_option("language", "en").unwrap();
+            app.open_bytes("scan.pdf", None, scan()).unwrap();
+            app.run_inline = true;
+            app.edit_recognizes_scans = on;
+            app
+        })
+    };
+    let mut off = build(false);
+    off.run_steps(4);
+    assert!(off.state_mut().execute("edit.edit_text"));
+    off.run_steps(3);
+    let id = off.state().active_ids().unwrap().1;
+    assert!(off.state().session.get(id).unwrap().text_lines(0).is_empty(), "left as a scan");
+
+    let mut h = build(true);
+    h.run_steps(4);
+    if !pdfcraft_engine::ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(3);
+    h.get_by_label("Recognize text in scanned pages");
+    assert!(h.state().ocr_run.is_none(), "finished");
+    let app = h.state();
+    let id = app.active_ids().unwrap().1;
+    let lines = app.session.get(id).unwrap().text_lines(0);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].text.to_lowercase().contains("scanned"), "{lines:?}");
+    // Choosing the tool again doesn't read the page twice: it has text now.
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(3);
+    assert_eq!(h.state().session.get(id).unwrap().can_undo(), Some("Recognize text"));
+}

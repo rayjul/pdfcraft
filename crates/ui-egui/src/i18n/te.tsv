@@ -1185,6 +1185,7 @@ comment menu	Edit	సవరించు
 	Searchable Image (Exact)	వెతకగలిగే చిత్రం (యథాతథం)
 	Adds invisible text over each word; the page image is not changed	ప్రతి పదంపై కనిపించని టెక్స్ట్‌ను జోడిస్తుంది; పేజీ చిత్రం మారదు
 	Editable Text and Images	సవరించదగిన టెక్స్ట్ మరియు చిత్రాలు
+	Recognize text in scanned pages	స్కాన్ చేసిన పేజీలలో టెక్స్ట్‌ను గుర్తించు
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	స్కాన్ చేసిన పదాలను "టెక్స్ట్‌ను సవరించు"తో మార్చగల టెక్స్ట్‌తో భర్తీ చేస్తుంది; పేజీలోని చిత్రాలు అలాగే ఉంటాయి
 	Downsample to	ఈ రిజల్యూషన్‌కు తగ్గించు
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	టెక్స్ట్ గుర్తింపు ఇన్‌స్టాల్ కాలేదు: దాని మోడల్ ఫైల్‌లు లేవు. PdfCraftను మళ్లీ ఇన్‌స్టాల్ చేయండి, లేదా వాటిని కలిగి ఉన్న ఫోల్డర్‌కు PDFCRAFT_MODELSను సెట్ చేయండి.

@@ -1192,6 +1192,7 @@
 	Searchable Image (Exact)	Durchsuchbares Bild (exakt)
 	Adds invisible text over each word; the page image is not changed	Legt unsichtbaren Text über jedes Wort; das Seitenbild bleibt unverändert
 	Editable Text and Images	Bearbeitbarer Text und Bilder
+	Recognize text in scanned pages	Text in gescannten Seiten erkennen
 	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Ersetzt die gescannten Wörter durch Text, den Sie mit „Text bearbeiten“ ändern können; Bilder auf der Seite bleiben erhalten
 	Downsample to	Herunterrechnen auf
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Die Texterkennung ist nicht installiert: ihre Modelldateien fehlen. Installiere PdfCraft neu oder setze PDFCRAFT_MODELS auf den Ordner, der sie enthält.

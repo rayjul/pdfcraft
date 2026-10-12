@@ -344,6 +344,23 @@ impl Document {
         self.generation
     }
 
+    /// Whether `page` (0-based) is a scan: no text, and a picture covering at least half of it.
+    /// Edit text & images recognises these pages as editable text before editing.
+    pub fn is_scanned_page(&self, page: usize) -> bool {
+        let Some(info) = self.info.pages.get(page) else { return false };
+        let c = info.crop.map(f64::from);
+        let area = (c[2] - c[0]).abs() * (c[3] - c[1]).abs();
+        if !area.is_finite() || area <= 0.0 {
+            return false;
+        }
+        let covered = self.page_images(page).iter().any(|i| {
+            let r = i.rect;
+            let a = (r[2] - r[0]).abs() * (r[3] - r[1]).abs();
+            a.is_finite() && a >= area * 0.5
+        });
+        covered && self.text_lines(page).is_empty()
+    }
+
     /// Edit a PDF ▸ Edit text: the lines of existing text on `page` (0-based).
     pub fn text_lines(&self, page: usize) -> Vec<pdfcraft_edit::TextLine> {
         self.editor.as_ref().and_then(|e| pdfcraft_edit::text_lines(&e.cos, page).ok()).unwrap_or_default()
