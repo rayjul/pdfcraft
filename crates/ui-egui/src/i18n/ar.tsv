@@ -1210,6 +1210,8 @@
 	Output	الناتج
 	Searchable Image (Exact)	صورة قابلة للبحث (مطابقة)
 	Adds invisible text over each word; the page image is not changed	يضيف نصًا غير مرئي فوق كل كلمة؛ صورة الصفحة لا تتغير
+	Editable Text and Images	نص وصور قابلة للتحرير
+	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	يستبدل الكلمات الممسوحة ضوئيًا بنص يمكنك تغييره باستخدام «تحرير النص»؛ وتبقى الصور الموجودة في الصفحة
 	Downsample to	تقليل العينات إلى
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	التعرف على النص غير مثبت: ملفات نماذجه مفقودة. أعد تثبيت PdfCraft، أو اضبط PDFCRAFT_MODELS على المجلد الذي يحتويها.
 	Settings	الإعدادات

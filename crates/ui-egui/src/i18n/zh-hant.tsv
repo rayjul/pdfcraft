@@ -871,6 +871,8 @@
 	Output	輸出
 	Searchable Image (Exact)	可搜尋圖片（精確）
 	Adds invisible text over each word; the page image is not changed	在每個詞上新增不可見文字；頁面圖片保持不變
+	Editable Text and Images	可編輯的文字和影像
+	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	將掃描的文字取代為可用「編輯文字」修改的文字；頁面上的圖片會保留
 	Downsample to	降取樣至
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	未安裝文字辨識：缺少模型檔案。請重新安裝 PdfCraft，或將 PDFCRAFT_MODELS 設定為包含這些檔案的資料夾。
 	Settings	設定

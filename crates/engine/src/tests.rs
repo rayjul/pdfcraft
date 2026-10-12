@@ -1860,6 +1860,75 @@ fn recognize_text_makes_a_scanned_page_searchable() {
     assert!(again[0].skipped.is_some());
 }
 
+/// A scanned page (a picture of `text`, no text in it) open in a session.
+fn scanned(s: &mut Session, text: &str) -> DocId {
+    let t = s.create_from_text("t", text).unwrap();
+    let id = s.open("text.pdf", None, t, None).unwrap();
+    let png = export::Exporter::new(s.get(id).unwrap()).png(0, 150.0).unwrap();
+    let scan = s.create_from_images(&[("scan.png".into(), png)]).unwrap();
+    s.open("scan.pdf", None, scan, None).unwrap()
+}
+
+/// Editable Text and Images: recognised lines become visible text that Edit text changes, with no
+/// trace of the old words (no models needed: the lines are given).
+#[test]
+fn editable_ocr_lines_become_text_that_edit_text_changes() {
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = scanned(&mut s, "Old words here");
+    assert!(s.get(id).unwrap().text_lines(0).is_empty(), "a picture has no text lines");
+    let word = |text: &str, x: f64| ocr::PlacedWord { text: text.into(), origin: [x, 700.0], across: [40.0, 0.0], up: [0.0, 14.0] };
+    let line = ocr::PlacedLine { words: vec![word("Old", 72.0), word("words", 118.0)], ink: [0.1, 0.1, 0.4], paper: [1.0, 1.0, 1.0], em: None };
+    let page = ocr::OcrPage { page: 0, words: line.words.clone(), lines: vec![line], skipped: None };
+    assert_eq!(s.apply_ocr(id, &[page]).unwrap(), 2);
+    assert_eq!(s.get(id).unwrap().can_undo(), Some("Recognize text"));
+
+    let lines = s.get(id).unwrap().text_lines(0);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    let l = &lines[0];
+    assert_eq!(l.text, "Old words");
+    assert!((l.color[2] - 0.4).abs() < 0.01, "drawn in the scan's ink: {:?}", l.color);
+    assert!(l.rect[0] >= 70.0 && l.rect[2] <= 160.0 && l.rect[1] >= 698.0 && l.rect[3] <= 718.0, "over the words: {:?}", l.rect);
+
+    s.apply(id, Edit::EditTextLine { page: 0, line: 0, text: "New words".into() }).unwrap();
+    let text = page_texts(&s, id)[0].clone();
+    assert!(text.contains("New words") && !text.contains("Old"), "{text}");
+    // Undo puts the page back as it was scanned, one step for the edit and one for recognition.
+    s.undo(id).unwrap();
+    s.undo(id).unwrap();
+    assert_eq!(page_texts(&s, id), [""]);
+}
+
+/// End to end, when the models are installed: the scanned words are hidden and the visible text
+/// is what a reader (here OCR of the rendered page) sees, before and after editing it.
+#[test]
+fn recognize_text_as_editable_text_replaces_the_scanned_words() {
+    if !ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let id = scanned(&mut s, "The quick brown fox jumps over the lazy dog.");
+    let settings = ocr::OcrSettings { output: ocr::OcrOutput::EditableText, ..Default::default() };
+    let found = s.recognize_text(id, &[], settings).unwrap();
+    assert_eq!(found[0].lines.len(), 1, "{:?}", found[0].lines);
+    let ink = found[0].lines[0].ink;
+    assert!(ink.iter().all(|c| *c < 0.35), "dark letters: {ink:?}");
+
+    let lines = s.get(id).unwrap().text_lines(0);
+    let k = lines.iter().position(|l| l.text.to_lowercase().contains("brown")).unwrap_or_else(|| panic!("{lines:?}"));
+    s.apply(id, Edit::EditTextLine { page: 0, line: k, text: "Hello there everyone".into() }).unwrap();
+
+    // What shows on the page now: the new words only, the scanned ones are covered.
+    let png = export::Exporter::new(s.get(id).unwrap()).png(0, 150.0).unwrap();
+    let img = image::load_from_memory(&png).unwrap().to_rgba8();
+    let ocr = ocr::engine().unwrap();
+    let seen: String = ocr.recognize(img.as_raw(), img.width(), img.height()).unwrap().iter().map(|l| l.text()).collect::<Vec<_>>().join(" ");
+    let seen = seen.to_lowercase();
+    // The new words show (OCR spells some of them loosely, so the clearest two are checked).
+    assert!(seen.contains("there") && seen.contains("everyone"), "{seen}");
+    assert!(!seen.contains("brown") && !seen.contains("lazy"), "the scanned words still show: {seen}");
+}
+
 /// A form whose scripts are custom JavaScript: total = price × qty (calculate, through a
 /// document-level function), shown with a custom format; qty is validated; a button script.
 fn scripted_form() -> Vec<u8> {

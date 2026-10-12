@@ -1,5 +1,7 @@
 //! Scan & OCR ▸ Recognize text: render pages, read the words in them and add an invisible text
-//! layer ([`Edit::AddOcrText`]), making scanned pages searchable and selectable.
+//! layer ([`Edit::AddOcrText`]), making scanned pages searchable and selectable, or replace the
+//! scanned words with visible text that Edit text can change ([`Edit::AddOcrEditableText`],
+//! [`OcrOutput::EditableText`]).
 //!
 //! Recognition is slow (about a second a page), so it is split from the edit: [`Session::ocr_job`]
 //! captures what it needs, [`OcrJob::run`] works anywhere (the UI runs it on a worker thread) and
@@ -9,9 +11,21 @@ use std::sync::{Arc, Mutex};
 
 use pdfcraft_render::{PageInfo, PageRenderer, RenderConfig, RenderRequest, RequestKind};
 
-pub use pdfcraft_ocr::{LANGUAGES, Models, Ocr, OcrError, PlacedWord};
+pub use pdfcraft_ocr::{LANGUAGES, Models, Ocr, OcrError, PlacedLine, PlacedWord};
 
 use crate::{DocId, Edit, EditError, Session};
+
+/// What Recognize text makes of a scanned page (Acrobat's Output choices).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OcrOutput {
+    /// Searchable Image (Exact): invisible text over each word; the page image is not changed.
+    #[default]
+    SearchableImage,
+    /// Editable Text and Images: each line's scanned words are covered with the paper's colour
+    /// and redrawn as visible text in the ink's colour, which Edit text can then change. The rest
+    /// of the page image (pictures, stamps, handwriting) is kept.
+    EditableText,
+}
 
 /// Recognize Text settings.
 #[derive(Clone, Debug, PartialEq)]
@@ -23,11 +37,12 @@ pub struct OcrSettings {
     /// Leave pages that already have text alone (Acrobat reports "page contains renderable
     /// text" and skips them).
     pub skip_text_pages: bool,
+    pub output: OcrOutput,
 }
 
 impl Default for OcrSettings {
     fn default() -> Self {
-        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true }
+        OcrSettings { dpi: 300.0, language: "en".into(), skip_text_pages: true, output: OcrOutput::default() }
     }
 }
 
@@ -36,6 +51,9 @@ impl Default for OcrSettings {
 pub struct OcrPage {
     pub page: usize,
     pub words: Vec<PlacedWord>,
+    /// The same words by line, with the colours sampled from the scan, when the output is
+    /// [`OcrOutput::EditableText`] (empty otherwise).
+    pub lines: Vec<PlacedLine>,
     /// Why the page was not read, if it was skipped.
     pub skipped: Option<String>,
 }
@@ -88,7 +106,7 @@ impl OcrJob {
                 break;
             }
             let Some(info) = self.infos.get(page) else { continue };
-            let skip = |why: &str| OcrPage { page, words: Vec::new(), skipped: Some(why.into()) };
+            let skip = |why: &str| OcrPage { page, words: Vec::new(), lines: Vec::new(), skipped: Some(why.into()) };
             if self.settings.skip_text_pages {
                 let t = r.render(RenderRequest { page, kind: RequestKind::Text, scale: 1.0, ..Default::default() });
                 if t.text.as_ref().is_some_and(|t| !t.plain_text().trim().is_empty()) {
@@ -118,7 +136,21 @@ impl OcrJob {
                 [u as f64, v as f64]
             };
             let words = lines.iter().flat_map(|l| &l.words).map(|w| PlacedWord::place(w, to_user)).collect();
-            out.push(OcrPage { page, words, skipped: None });
+            let lines = match self.settings.output {
+                OcrOutput::SearchableImage => Vec::new(),
+                OcrOutput::EditableText => lines
+                    .iter()
+                    .filter_map(|l| {
+                        let rect = l.words.iter().map(|w| w.rect).reduce(|a, b| [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])])?;
+                        let (ink, paper) = pdfcraft_ocr::line_colours(&shot.rgba, shot.width, shot.height, rect);
+                        let em = pdfcraft_ocr::ink_box(&shot.rgba, shot.width, shot.height, rect, ink, paper)
+                            .and_then(|tight| pdfcraft_ocr::em_box(tight, &l.text()))
+                            .map(|e| PlacedWord::place(&e, to_user));
+                        Some(PlacedLine { words: l.words.iter().map(|w| PlacedWord::place(w, to_user)).collect(), ink, paper, em })
+                    })
+                    .collect(),
+            };
+            out.push(OcrPage { page, words, lines, skipped: None });
         }
         progress(total, total);
         out
@@ -150,10 +182,17 @@ impl Session {
         Some(OcrJob { bytes: doc.bytes.clone(), password: doc.password.clone(), infos: doc.info.pages.clone(), native, pages, settings })
     }
 
-    /// Add the words found by [`OcrJob::run`] as one undoable step. Returns the number of words.
+    /// Add the words found by [`OcrJob::run`] as one undoable step: as editable text on the pages
+    /// read for [`OcrOutput::EditableText`], else as an invisible layer. Returns the number of words.
     pub fn apply_ocr(&mut self, id: DocId, found: &[OcrPage]) -> Result<usize, EditError> {
-        let edits: Vec<Edit> =
-            found.iter().filter(|p| !p.words.is_empty()).map(|p| Edit::AddOcrText { page: p.page, words: p.words.clone() }).collect();
+        let edits: Vec<Edit> = found
+            .iter()
+            .filter(|p| !p.words.is_empty())
+            .map(|p| match p.lines.is_empty() {
+                true => Edit::AddOcrText { page: p.page, words: p.words.clone() },
+                false => Edit::AddOcrEditableText { page: p.page, lines: p.lines.clone() },
+            })
+            .collect();
         let words = found.iter().map(|p| p.words.len()).sum();
         if !edits.is_empty() {
             self.apply(id, Edit::Batch { label: "Recognize text".into(), edits })?;

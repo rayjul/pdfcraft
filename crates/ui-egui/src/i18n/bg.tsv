@@ -915,6 +915,8 @@
 	Output	Резултат
 	Searchable Image (Exact)	Изображение с възможност за търсене (точно)
 	Adds invisible text over each word; the page image is not changed	Добавя невидим текст върху всяка дума; изображението на страницата не се променя
+	Editable Text and Images	Редактируем текст и изображения
+	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Заменя сканираните думи с текст, който можете да промените с „Редактирай текста“; картините на страницата се запазват
 	Downsample to	Намали разделителната способност до
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Разпознаването на текст не е инсталирано: файловете на моделите му липсват. Инсталирайте PdfCraft отново или задайте в PDFCRAFT_MODELS папката, която ги съдържа.
 	Settings	Настройки

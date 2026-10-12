@@ -65,3 +65,35 @@ fn recognize_text_in_multiple_files_writes_searchable_copies() {
         assert!(bytes.len() > scan().len(), "an incremental update was appended");
     }
 }
+
+/// Output ▸ Editable Text and Images: the scanned words become text lines Edit text can change.
+#[test]
+fn recognize_text_dialog_can_make_editable_text() {
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(|_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("scan.pdf", None, scan()).unwrap();
+        app.run_inline = true;
+        app
+    });
+    h.run_steps(4);
+    assert!(h.state_mut().execute("ocr.recognize"));
+    h.run_steps(2);
+    h.get_by_value("Searchable Image (Exact)").click(); // the Output menu
+    h.run_steps(2);
+    h.get_by_label("Editable Text and Images").click();
+    h.run_steps(2);
+    assert_eq!(h.state().ocr_draft.output, pdfcraft_engine::ocr::OcrOutput::EditableText);
+    if !pdfcraft_engine::ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    h.get_by_label("Recognize text").click();
+    h.run_steps(3);
+    assert!(h.state().ocr_run.is_none(), "finished");
+    let app = h.state();
+    let id = app.active_ids().unwrap().1;
+    let lines = app.session.get(id).unwrap().text_lines(0);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].text.to_lowercase().contains("scanned"), "{lines:?}");
+}

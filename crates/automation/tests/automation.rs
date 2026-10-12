@@ -2963,6 +2963,32 @@ fn ocr_tools_make_a_scan_searchable() {
     assert!(matches!(a.call("ocr_recognize", &json!({ "doc": scan, "language": "xx" })), Err(ToolError::InvalidArgs(_))));
 }
 
+/// output editable: the scanned words become visible text lines that text_edit changes.
+#[test]
+fn ocr_editable_output_gives_text_that_text_edit_changes() {
+    let dir = workdir("ocr-editable");
+    let mut a = auto(&dir);
+    let text = ok(&mut a, "doc_create", json!({ "from": "text", "text": "Scanned letters become editable text" }))["doc"].as_u64().unwrap();
+    ok(&mut a, "doc_export_images", json!({ "doc": text, "folder": "scan", "dpi": 150, "pages": [1] }));
+    let png = std::fs::read_dir(dir.join("scan")).unwrap().next().unwrap().unwrap().path();
+    let scan = ok(&mut a, "doc_create", json!({ "from": "images", "paths": [png.to_string_lossy()] }))["doc"].as_u64().unwrap();
+    // A bad output is refused whether or not the models are installed.
+    assert!(matches!(a.call("ocr_recognize", &json!({ "doc": scan, "output": "word" })), Err(ToolError::InvalidArgs(_))));
+    if ok(&mut a, "ocr_status", json!({}))["available"] != true {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let r = ok(&mut a, "ocr_recognize", json!({ "doc": scan, "output": "editable" }));
+    assert!(r["words"].as_u64().unwrap() >= 4, "{r}");
+    let lines = ok(&mut a, "text_lines", json!({ "doc": scan, "page": 1 }));
+    let list = lines["lines"].as_array().unwrap_or_else(|| panic!("{lines}"));
+    assert_eq!(list.len(), 1, "{lines}");
+    assert!(list[0]["text"].as_str().unwrap().to_lowercase().contains("editable"), "{lines}");
+    ok(&mut a, "text_edit", json!({ "doc": scan, "page": 1, "line": 1, "text": "Fixed after scanning" }));
+    let after = ok(&mut a, "text_lines", json!({ "doc": scan, "page": 1 }));
+    assert_eq!(after["lines"][0]["text"], "Fixed after scanning", "{after}");
+}
+
 #[test]
 fn ocr_recognize_files_refuses_paths_outside_the_root() {
     let dir = workdir("ocr-files-root");

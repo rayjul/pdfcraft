@@ -150,6 +150,11 @@ impl Automation {
         if let Some(s) = a.opt_bool("skip_text_pages")? {
             settings.skip_text_pages = s;
         }
+        settings.output = match a.opt_str("output")? {
+            None | Some("searchable") => pdfcraft_engine::ocr::OcrOutput::SearchableImage,
+            Some("editable") => pdfcraft_engine::ocr::OcrOutput::EditableText,
+            Some(o) => return Err(ToolError::InvalidArgs(format!("unknown output {o:?} (searchable or editable)"))),
+        };
         Ok(settings)
     }
 

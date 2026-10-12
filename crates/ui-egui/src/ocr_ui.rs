@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use egui::{Align, Layout};
 use pdfcraft_engine::DocId;
-use pdfcraft_engine::ocr::{LANGUAGES, OcrPage, OcrSettings};
+use pdfcraft_engine::ocr::{LANGUAGES, OcrOutput, OcrPage, OcrSettings};
 
 use crate::theme::{self, Tokens};
 use crate::{PdfCraftApp, widgets};
@@ -28,11 +28,19 @@ pub struct OcrDraft {
     pub language: String,
     /// "Downsample to" resolution.
     pub dpi: u32,
+    pub output: OcrOutput,
 }
 
 impl Default for OcrDraft {
     fn default() -> Self {
-        OcrDraft { pages: OcrPages::All, from: 1, to: 1, language: "en".into(), dpi: 300 }
+        OcrDraft { pages: OcrPages::All, from: 1, to: 1, language: "en".into(), dpi: 300, output: OcrOutput::default() }
+    }
+}
+
+impl OcrDraft {
+    /// The settings to recognise with.
+    fn settings(&self) -> OcrSettings {
+        OcrSettings { dpi: self.dpi as f32, language: self.language.clone(), output: self.output, ..Default::default() }
     }
 }
 
@@ -96,10 +104,15 @@ pub(crate) fn body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tokens) -> (boo
             });
             ui.end_row();
             ui.label(tl!("Output"));
-            egui::ComboBox::from_id_salt("ocr-output").selected_text(tl!("Searchable Image (Exact)")).width(220.0).show_ui(ui, |ui| {
-                let _ = ui
-                    .selectable_label(true, tl!("Searchable Image (Exact)"))
+            let output_name = |o: OcrOutput| match o {
+                OcrOutput::SearchableImage => tl!("Searchable Image (Exact)"),
+                OcrOutput::EditableText => tl!("Editable Text and Images"),
+            };
+            egui::ComboBox::from_id_salt("ocr-output").selected_text(output_name(d.output)).width(220.0).show_ui(ui, |ui| {
+                ui.selectable_value(&mut d.output, OcrOutput::SearchableImage, output_name(OcrOutput::SearchableImage))
                     .on_hover_text(tl!("Adds invisible text over each word; the page image is not changed"));
+                ui.selectable_value(&mut d.output, OcrOutput::EditableText, output_name(OcrOutput::EditableText))
+                    .on_hover_text(tl!("Replaces the scanned words with text you can change with Edit text; pictures on the page are kept"));
             });
             ui.end_row();
             ui.label(tl!("Downsample to"));
@@ -152,8 +165,7 @@ impl PdfCraftApp {
             OcrPages::Current => vec![self.views[vi].current],
             OcrPages::Range => (d.from.saturating_sub(1)..d.to).collect(),
         };
-        let settings = OcrSettings { dpi: d.dpi as f32, language: d.language.clone(), ..Default::default() };
-        let Some(job) = self.session.ocr_job(id, &pages, settings) else { return };
+        let Some(job) = self.session.ocr_job(id, &pages, d.settings()) else { return };
         let progress = Arc::new(Mutex::new(OcrProgress { total: job.pages.len(), ..Default::default() }));
         let p = progress.clone();
         let work = move || {
@@ -189,7 +201,7 @@ impl PdfCraftApp {
             return;
         }
         // The settings showing now, not when the folder arrives.
-        let settings = OcrSettings { dpi: self.ocr_draft.dpi as f32, language: self.ocr_draft.language.clone(), ..Default::default() };
+        let settings = self.ocr_draft.settings();
         #[cfg(not(target_arch = "wasm32"))]
         match self.export_dir_override.clone() {
             Some(d) => self.ocr_files_into(files, settings, d.into()),

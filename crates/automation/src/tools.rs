@@ -917,7 +917,7 @@ pub fn tools() -> Vec<ToolDef> {
             )),
         t("js_enabled", "JavaScript on or off", "Preferences ▸ JavaScript ▸ Enable Acrobat JavaScript: set it with `enabled`, or read it. With JavaScript off, field scripts other than Acrobat's AF calls don't run.")
             .with(schema(json!({ "enabled": { "type": "boolean" } }), &[])),
-        t("ocr_recognize", "Recognize text (OCR)", "Scan & OCR ▸ Recognize text: render pages, read the words in them and add them as invisible text over the page image, so scanned pages become searchable and selectable (a searchable image; the image is not changed). Pages that already have text are skipped unless skip_text_pages is false. Returns each page's recognised text, word count or why it was skipped. Needs the OCR models (ocr_status). Undoable as one step.")
+        t("ocr_recognize", "Recognize text (OCR)", "Scan & OCR ▸ Recognize text: render pages, read the words in them and add them as invisible text over the page image, so scanned pages become searchable and selectable (output searchable, the default: the image is not changed), or (output editable) cover each line's scanned words with the paper colour and draw them as visible text that text_edit can change. Pages that already have text are skipped unless skip_text_pages is false. Returns each page's recognised text, word count or why it was skipped. Needs the OCR models (ocr_status). Undoable as one step.")
             .cmd("ocr.recognize")
             .with(schema(
                 json!({
@@ -926,6 +926,7 @@ pub fn tools() -> Vec<ToolDef> {
                     "dpi": { "type": "number", "minimum": 72, "maximum": 600, "description": "Resolution pages are read at (default 300; a scanned page is read at most at its own resolution)." },
                     "language": { "type": "string", "enum": ["en"], "description": "Document language (default en)." },
                     "skip_text_pages": { "type": "boolean", "description": "Leave pages that already contain text alone (default true)." },
+                    "output": { "type": "string", "enum": ["searchable", "editable"], "description": "searchable: invisible text over the unchanged image (default); editable: the scanned words replaced by visible, editable text." },
                 }),
                 &["doc"],
             )),
@@ -937,6 +938,7 @@ pub fn tools() -> Vec<ToolDef> {
                     "folder": { "type": "string" },
                     "dpi": { "type": "number", "minimum": 72, "maximum": 600 },
                     "language": { "type": "string", "enum": ["en"] },
+                    "output": { "type": "string", "enum": ["searchable", "editable"], "description": "As for ocr_recognize (default searchable)." },
                 }),
                 &["paths", "folder"],
             )),

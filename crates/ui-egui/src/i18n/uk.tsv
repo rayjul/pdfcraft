@@ -1208,6 +1208,8 @@
 	Output	Вивід
 	Searchable Image (Exact)	Зображення з пошуком (точне)
 	Adds invisible text over each word; the page image is not changed	Додає невидимий текст поверх кожного слова; зображення сторінки не змінюється
+	Editable Text and Images	Редагований текст і зображення
+	Replaces the scanned words with text you can change with Edit text; pictures on the page are kept	Замінює відскановані слова текстом, який можна змінити за допомогою «Редагувати текст»; зображення на сторінці зберігаються
 	Downsample to	Знизити роздільну здатність до
 	Text recognition isn't installed: its model files are missing. Reinstall PdfCraft, or set PDFCRAFT_MODELS to the folder that holds them.	Розпізнавання тексту не встановлено: бракує файлів моделей. Перевстановіть PdfCraft або задайте в PDFCRAFT_MODELS теку, у якій вони лежать.
 	Settings	Налаштування

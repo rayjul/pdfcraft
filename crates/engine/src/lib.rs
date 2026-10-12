@@ -1054,6 +1054,13 @@ pub enum Edit {
         page: usize,
         words: Vec<pdfcraft_ocr::PlacedWord>,
     },
+    /// Scan & OCR ▸ Recognize text ▸ Editable Text and Images: cover each recognised line's
+    /// scanned words on `page` with the paper colour and draw them as visible text, which Edit
+    /// text can change (from [`ocr::OcrJob::run`] with [`ocr::OcrOutput::EditableText`]).
+    AddOcrEditableText {
+        page: usize,
+        lines: Vec<pdfcraft_ocr::PlacedLine>,
+    },
     /// Edit a PDF ▸ Edit text: replace the text of line `line` (from `Document::text_lines`) on
     /// `page`, in its own font when it can show it, else in Helvetica.
     EditTextLine {
@@ -1255,7 +1262,7 @@ impl Edit {
             Edit::SetInitialView(_) => "Change initial view".into(),
             Edit::SetAltText { .. } => "Set alternate text".into(),
             Edit::MarkDecorative { .. } => "Mark figure as decorative".into(),
-            Edit::AddOcrText { .. } => "Recognize text".into(),
+            Edit::AddOcrText { .. } | Edit::AddOcrEditableText { .. } => "Recognize text".into(),
             Edit::ApplyScriptChanges { .. } => "Run JavaScript".into(),
             Edit::XfaEvent { .. } => "Run form script".into(),
             Edit::ConvertPdfA { level } => format!("Save as {}", level.label()),
@@ -1437,6 +1444,7 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::SetAltText { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
+        | Edit::AddOcrEditableText { .. }
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
         | Edit::ConvertPdfA { .. }
@@ -1693,6 +1701,9 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
         Edit::AddOcrText { page, words } => {
             pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::text_layer(words))?;
+        }
+        Edit::AddOcrEditableText { page, lines } => {
+            pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::editable_layer(lines))?;
         }
         Edit::EditPageImage { page, index, change } => {
             let img = pdfcraft_edit::page_images(doc, *page)?
