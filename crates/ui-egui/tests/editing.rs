@@ -2254,3 +2254,62 @@ fn host_dirty_hears_when_unsaved_work_appears_and_goes() {
     assert_eq!(reports.lock().unwrap().last(), Some(&false), "saving clears it");
     let _ = std::fs::remove_file(out);
 }
+
+/// A scanned page after Recognize text ▸ Editable Text: the scan is one picture covering the page
+/// under the recognised lines. Clicking a line opens it for editing, not the picture behind it;
+/// clicking where there is no text still selects the picture.
+#[test]
+fn edit_text_opens_recognised_lines_over_a_scanned_page() {
+    use pdfcraft_engine::ocr::{OcrPage, PlacedLine, PlacedWord};
+    let mut png = Vec::new();
+    image::RgbImage::from_pixel(1200, 800, image::Rgb([250, 248, 240]))
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+        let mut app = PdfCraftApp::new();
+        app.set_option("language", "en").unwrap();
+        app.open_bytes("scan.png", None, png.clone()).expect("opens");
+        app
+    });
+    h.run_steps(4);
+    let id = h.state().views[0].id;
+    let page = h.state().session.get(id).unwrap().page_images(0)[0].rect;
+    let (w, ht) = (page[2] - page[0], page[3] - page[1]);
+    let word = |text: &str, x: f64| PlacedWord {
+        text: text.into(),
+        origin: [page[0] + x * w, page[1] + 0.5 * ht],
+        across: [0.15 * w, 0.0],
+        up: [0.0, 0.05 * ht],
+    };
+    let line = PlacedLine { words: vec![word("Truck", 0.2), word("delivery", 0.4)], ink: [0.1; 3], paper: [1.0; 3], em: None };
+    let found = OcrPage { page: 0, words: line.words.clone(), lines: vec![line], skipped: None };
+    h.state_mut().session.apply_ocr(id, &[found]).unwrap();
+    h.run_steps(2);
+    assert!(h.state_mut().execute("edit.edit_text"));
+    h.run_steps(2);
+    let r = h.state().views[0].page_screen_rect(0).expect("on screen");
+    let at = |x: f64, y: f64| egui::pos2(r.left() + x as f32 * r.width(), r.top() + y as f32 * r.height());
+    // On the line (its middle, in screen terms half a line above the baseline at mid-page).
+    let on_line = at(0.3, 0.475);
+    h.hover_at(on_line);
+    h.run_steps(1);
+    h.drag_at(on_line);
+    h.run_steps(1);
+    h.drop_at(on_line);
+    h.run_steps(2);
+    let s = h.state();
+    let ed = s.views[0].line_editor.clone().expect("the recognised line opens for editing");
+    assert_eq!(ed.text, "Truck delivery");
+    assert!(s.views[0].image_selection.is_none(), "the scan isn't selected");
+    // Away from the text, the click still reaches the picture.
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+    let blank = at(0.5, 0.85);
+    h.hover_at(blank);
+    h.run_steps(1);
+    h.drag_at(blank);
+    h.run_steps(1);
+    h.drop_at(blank);
+    h.run_steps(2);
+    assert!(h.state().views[0].image_selection.is_some(), "the scan is selected");
+}

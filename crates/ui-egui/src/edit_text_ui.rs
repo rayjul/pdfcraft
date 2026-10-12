@@ -269,6 +269,32 @@ fn user_box(xf: &PageXform, info: &DocInfo, page: usize, r: Rect) -> [f64; 4] {
     [u[0].min(v[0]) as f64, u[1].min(v[1]) as f64, u[0].max(v[0]) as f64, u[1].max(v[1]) as f64]
 }
 
+/// Whether a paragraph takes the pointer before the images on `page`: a paragraph is being
+/// dragged, or the pointer is over one and every image under it is a background holding the
+/// paragraph whole (a scanned page under its recognised text). An image being dragged, or one
+/// only overlapping a paragraph's corner, keeps the pointer.
+pub(crate) fn text_first(
+    ui: &egui::Ui,
+    xf: &PageXform,
+    page: usize,
+    info: &DocInfo,
+    lines: &[pdfcraft_engine::TextBlock],
+    images: &[pdfcraft_engine::PageImage],
+    view: &DocView,
+) -> bool {
+    if view.block_drag.is_some_and(|d| d.page == page) {
+        return true;
+    }
+    if view.image_selection.as_ref().is_some_and(|s| s.page == page && s.drag.is_some()) {
+        return false;
+    }
+    let Some(p) = ui.input(|i| i.pointer.press_origin().filter(|_| i.pointer.any_down()).or(i.pointer.hover_pos())) else { return false };
+    let Some(text) = lines.iter().map(|l| xf.user_rect(info, page, l.rect.map(|v| v as f32)).expand(2.0)).find(|b| b.contains(p)) else {
+        return false;
+    };
+    images.iter().map(|im| xf.user_rect(info, page, im.rect.map(|v| v as f32))).filter(|b| b.contains(p)).all(|b| b.contains_rect(text))
+}
+
 /// Images on a page: select, move, resize, right-click. Returns `true` when the pointer was used.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn image_input(

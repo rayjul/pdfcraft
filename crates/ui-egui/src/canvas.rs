@@ -2298,9 +2298,16 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
                         l
                     }
                 };
-                // Images first (they can sit under text boxes' corners); then paragraphs.
-                crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action)
-                    || crate::edit_text_ui::page_input(ui, &resp, &xf, i, info, &lines, view)
+                // Images first (they can sit under text boxes' corners); then paragraphs. Text over
+                // a picture that holds it whole (a scanned page under its recognised text) comes
+                // first, or the picture would take every click.
+                let text_first = crate::edit_text_ui::text_first(ui, &xf, i, info, &lines, &images, view);
+                let on_text = |view: &mut DocView| crate::edit_text_ui::page_input(ui, &resp, &xf, i, info, &lines, view);
+                if text_first && on_text(view) {
+                    true
+                } else {
+                    crate::edit_text_ui::image_input(ui, &resp, &xf, i, info, &images, view, &mut image_action) || (!text_first && on_text(view))
+                }
             };
             let on_link = tool == QuickTool::Link && can_modify && crate::link_ui::page_input(ui, &resp, &xf, i, info, &doc_links, view);
             let consumed = on_objects || on_edit_text || on_link || on_content || boxing || on_field || comments::page_input(ui, &resp, &pcx, view);
