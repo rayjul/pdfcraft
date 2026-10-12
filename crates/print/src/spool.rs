@@ -351,8 +351,12 @@ pub fn printers_parsed(queues: &str, available: Option<&str>) -> Vec<Printer> {
 /// writing banners into what is parsed, `-NonInteractive` from waiting for input.
 #[cfg(windows)]
 fn powershell_command(script: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    /// Win32 `CREATE_NO_WINDOW`: PdfCraft is a windowed app, so without it every listing of the
+    /// printers and every job flashes a console window.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let mut c = std::process::Command::new("powershell");
-    c.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    c.args(["-NoProfile", "-NonInteractive", "-Command", script]).creation_flags(CREATE_NO_WINDOW);
     c
 }
 
