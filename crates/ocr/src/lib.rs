@@ -84,11 +84,13 @@ impl Models {
     }
 }
 
-/// A recognised word: its text and its box in image pixels `[left, top, right, bottom]`.
+/// A recognised word: its text, its box in image pixels `[left, top, right, bottom]`, and how
+/// sure the recogniser is of it (0–1: the least likely of its letters; 1 when not measured).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Word {
     pub text: String,
     pub rect: [f32; 4],
+    pub confidence: f32,
 }
 
 /// A recognised line of words, in reading order.
@@ -106,6 +108,9 @@ impl Line {
 /// A loaded recogniser. Loading takes a moment; keep one and reuse it.
 pub struct Ocr {
     engine: ocrs::OcrEngine,
+    /// A second copy of the recognition model, run again on each line for the letters'
+    /// probabilities (ocrs keeps them to itself).
+    recognizer: rten::Model,
 }
 
 impl Ocr {
@@ -118,7 +123,7 @@ impl Ocr {
             ..Default::default()
         };
         let engine = ocrs::OcrEngine::new(params).map_err(|e| OcrError::Load("ocr engine".into(), e.to_string()))?;
-        Ok(Ocr { engine })
+        Ok(Ocr { engine, recognizer: load(&models.recognition)? })
     }
 
     /// Load the models found by [`Models::find`].
@@ -146,19 +151,97 @@ impl Ocr {
         use ocrs::TextItem;
         Ok(read
             .into_iter()
-            .flatten()
-            .map(|line| Line {
-                words: line
+            .zip(&lines)
+            .filter_map(|(line, rects)| {
+                let line = line?;
+                let mut words: Vec<Word> = line
                     .words()
                     .map(|w| {
                         let r = w.bounding_rect();
-                        Word { text: w.to_string(), rect: [r.left() as f32, r.top() as f32, r.right() as f32, r.bottom() as f32] }
+                        Word { text: w.to_string(), rect: [r.left() as f32, r.top() as f32, r.right() as f32, r.bottom() as f32], confidence: 1.0 }
                     })
                     .filter(|w| !w.text.trim().is_empty())
-                    .collect(),
+                    .collect();
+                if let Some(read) = self.confidences(&input, rects) {
+                    assign_confidences(&mut words, &read);
+                }
+                (!words.is_empty()).then_some(Line { words })
             })
-            .filter(|l| !l.words.is_empty())
             .collect())
+    }
+
+    /// Read one line again and return its words with the probability of their least likely
+    /// letter. `None` when the model's output isn't the expected shape.
+    fn confidences(&self, input: &ocrs::OcrInput, line: &[rten_imageproc::RotatedRect]) -> Option<Vec<(String, f32)>> {
+        use rten_tensor::prelude::*;
+        let image = self.engine.prepare_recognition_input(input, line).ok()?;
+        let [h, w] = image.shape();
+        let batch = rten_tensor::NdTensor::from_data([1, 1, h, w], image.to_vec());
+        let out = self.recognizer.run_one(batch.view().as_dyn().into(), None).ok()?;
+        let out: rten_tensor::NdTensor<f32, 3> = out.try_into().ok()?;
+        // [sequence, batch, class]: log probabilities, class 0 the CTC blank.
+        let [steps, _, classes] = out.shape();
+        if classes != ALPHABET.chars().count() + 1 {
+            return None;
+        }
+        let alphabet: Vec<char> = ALPHABET.chars().collect();
+        let mut letters: Vec<(char, f32)> = Vec::new();
+        let mut last = 0;
+        for s in 0..steps {
+            let (mut best, mut p) = (0, f32::NEG_INFINITY);
+            for c in 0..classes {
+                let v = out.get([s, 0, c]).copied().unwrap_or(f32::NEG_INFINITY);
+                if v > p {
+                    (best, p) = (c, v);
+                }
+            }
+            let p = if p.is_finite() { p.exp().clamp(0.0, 1.0) } else { 0.0 };
+            if best != last && best > 0 {
+                letters.push((alphabet.get(best - 1).copied().unwrap_or('?'), p));
+            } else if best == last
+                && best > 0
+                && let Some(l) = letters.last_mut()
+            {
+                l.1 = l.1.max(p);
+            }
+            last = best;
+        }
+        let mut words = Vec::new();
+        let mut cur: Option<(String, f32)> = None;
+        for (c, p) in letters {
+            if c == ' ' {
+                words.extend(cur.take());
+                continue;
+            }
+            let w = cur.get_or_insert_with(|| (String::new(), 1.0));
+            w.0.push(c);
+            w.1 = w.1.min(p);
+        }
+        words.extend(cur);
+        Some(words)
+    }
+}
+
+/// Give each word the confidence of the same word read again: in order when the two readings
+/// split the line into as many words, else by matching text; a word not found takes the
+/// line's lowest.
+fn assign_confidences(words: &mut [Word], read: &[(String, f32)]) {
+    if read.len() == words.len() {
+        for (w, r) in words.iter_mut().zip(read) {
+            w.confidence = r.1;
+        }
+        return;
+    }
+    let lowest = read.iter().map(|r| r.1).fold(1.0f32, f32::min);
+    let mut from = 0;
+    for w in words.iter_mut() {
+        match read.get(from..).and_then(|rest| rest.iter().position(|r| r.0 == w.text)) {
+            Some(i) => {
+                w.confidence = read.get(from + i).map_or(lowest, |r| r.1);
+                from += i + 1;
+            }
+            None => w.confidence = lowest,
+        }
     }
 }
 
@@ -369,7 +452,7 @@ pub fn em_box(tight: [f32; 4], text: &str) -> Option<Word> {
     if !(em.is_finite() && em > 0.0 && tight[2] > tight[0]) {
         return None;
     }
-    Some(Word { text: text.into(), rect: [tight[0], (baseline - em) as f32, tight[2], baseline as f32] })
+    Some(Word { text: text.into(), rect: [tight[0], (baseline - em) as f32, tight[2], baseline as f32], confidence: 1.0 })
 }
 
 /// A recognised line ready for Editable Text output, in image pixels: its words, the colours of
@@ -390,6 +473,10 @@ const SPECK: f32 = 0.4;
 /// A word nearer than this many line heights to one left in the image (on any line, side by
 /// side) is left too: a stamp or signature rarely ends exactly where OCR split the words.
 const TOUCHING: f32 = 0.5;
+/// A word the recogniser is less sure of than this is left in the image: replacing scanned words
+/// with a misreading ("Area L?de" for "Area Code") loses what the page said, while leaving a
+/// correct word only means it can't be edited. Clean print reads at 0.95 and above.
+const UNSURE: f32 = 0.9;
 /// Words further apart than this many line heights are separate fields (columns, form labels
 /// and their values), each its own line.
 const FIELD_GAP: f32 = 2.5;
@@ -398,7 +485,8 @@ const FIELD_GAP: f32 = 2.5;
 /// - Words much taller than the rest of their line (handwriting or a stamp through them), in an
 ///   ink of another colour than the page's print (a blue signature, a red stamp) or too small to
 ///   be letters (specks) are left in the image, untouched.
-/// - Words touching those are left too ([`TOUCHING`]).
+/// - Words touching those are left too ([`TOUCHING`]), and so are words the recogniser isn't
+///   sure of ([`UNSURE`]), so a misreading never replaces what the scan says.
 /// - A line is split where such a word was, at a ruled line between two words (table cells), at
 ///   a gap wider than [`FIELD_GAP`] line heights, so each cell or field edits on its own, and
 ///   where something OCR didn't read is inked between two words, so the cover never hides it.
@@ -450,7 +538,7 @@ pub fn editable_lines(rgba: &[u8], width: u32, height: u32, lines: &[Line]) -> V
         let Some(line_height) = line_height else { continue };
         let mut part: Vec<Word> = Vec::new();
         for &(w, _, paper) in words {
-            if marked(w) {
+            if marked(w) || w.confidence < UNSURE {
                 out.extend(measure(rgba, width, height, std::mem::take(&mut part)));
                 continue;
             }
@@ -676,7 +764,7 @@ mod tests {
     fn places_words_through_the_mapping() {
         // 2 pixels per point, page 612 × 792, y flipped.
         let to_user = |x: f32, y: f32| [x as f64 / 2.0, 792.0 - y as f64 / 2.0];
-        let w = PlacedWord::place(&Word { text: "Hello".into(), rect: [100.0, 200.0, 300.0, 240.0] }, to_user);
+        let w = PlacedWord::place(&Word { text: "Hello".into(), rect: [100.0, 200.0, 300.0, 240.0], confidence: 1.0 }, to_user);
         assert_eq!(w.origin, [50.0, 672.0]);
         assert_eq!(w.across, [100.0, 0.0]);
         assert_eq!(w.up, [0.0, 20.0]);
@@ -696,7 +784,7 @@ mod tests {
     fn rotated_pages_keep_the_reading_direction() {
         // A page turned 90°: image x runs up the page.
         let to_user = |x: f32, y: f32| [y as f64, x as f64];
-        let w = PlacedWord::place(&Word { text: "Up".into(), rect: [0.0, 0.0, 50.0, 10.0] }, to_user);
+        let w = PlacedWord::place(&Word { text: "Up".into(), rect: [0.0, 0.0, 50.0, 10.0], confidence: 1.0 }, to_user);
         assert_eq!(w.across, [0.0, 50.0]);
         assert_eq!(w.up, [-10.0, 0.0]);
     }
@@ -860,7 +948,7 @@ mod tests {
     }
 
     fn ocr_word(text: &str, rect: [u32; 4]) -> Word {
-        Word { text: text.into(), rect: rect.map(|v| v as f32) }
+        Word { text: text.into(), rect: rect.map(|v| v as f32), confidence: 1.0 }
     }
 
     fn texts(lines: &[EditableLine]) -> Vec<String> {
@@ -957,15 +1045,15 @@ mod tests {
         let line = Line {
             words: vec![
                 ocr_word("ok", [5, 10, 40, 30]),
-                Word { text: "nan".into(), rect: [f32::NAN, 0.0, 10.0, 10.0] },
-                Word { text: "inf".into(), rect: [0.0, 0.0, f32::INFINITY, 10.0] },
-                Word { text: "flat".into(), rect: [10.0, 10.0, 5.0, 5.0] },
+                Word { text: "nan".into(), rect: [f32::NAN, 0.0, 10.0, 10.0], confidence: 1.0 },
+                Word { text: "inf".into(), rect: [0.0, 0.0, f32::INFINITY, 10.0], confidence: 1.0 },
+                Word { text: "flat".into(), rect: [10.0, 10.0, 5.0, 5.0], confidence: 1.0 },
             ],
         };
         assert_eq!(texts(&editable_lines(&px, 50, 50, std::slice::from_ref(&line))), ["ok"]);
         // A page-sized box over the word: both are left in the image.
         let mut line = line;
-        line.words.push(Word { text: "huge".into(), rect: [0.0, 0.0, 1e9, 1e9] });
+        line.words.push(Word { text: "huge".into(), rect: [0.0, 0.0, 1e9, 1e9], confidence: 1.0 });
         assert!(editable_lines(&px, 50, 50, std::slice::from_ref(&line)).is_empty());
         let _ = editable_lines(&px[..10], 50, 50, std::slice::from_ref(&line));
         let _ = editable_lines(&[], 0, 0, std::slice::from_ref(&line));
@@ -1016,6 +1104,34 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// A word the recogniser isn't sure of stays in the image: the line splits around it.
+    #[test]
+    fn unsure_words_stay_in_the_image() {
+        let words = [("Area", [10, 40, 50, 60]), ("L?de", [58, 40, 95, 60]), ("Phone", [103, 40, 150, 60])];
+        let ink: Vec<_> = words.iter().map(|(_, r)| printed(*r)).collect();
+        let px = painted(200, 100, &ink);
+        let mut line = Line { words: words.iter().map(|(t, r)| ocr_word(t, *r)).collect() };
+        line.words[1].confidence = 0.6;
+        assert_eq!(texts(&editable_lines(&px, 200, 100, &[line])), ["Area", "Phone"]);
+    }
+
+    /// Confidences read again go to the right words: in order when the readings split alike,
+    /// by text when they don't, the line's lowest for a word not found.
+    #[test]
+    fn confidences_follow_their_words() {
+        let words = |t: &[&str]| t.iter().map(|t| ocr_word(t, [0, 0, 10, 10])).collect::<Vec<_>>();
+        let conf = |w: &[Word]| w.iter().map(|w| w.confidence).collect::<Vec<_>>();
+        let mut w = words(&["MIX", "&MATCH"]);
+        assign_confidences(&mut w, &[("MIX".into(), 0.99), ("&MATCH".into(), 0.64)]);
+        assert_eq!(conf(&w), [0.99, 0.64]);
+        let mut w = words(&["MIX", "&", "MATCH", "Atfr"]);
+        assign_confidences(&mut w, &[("MIX".into(), 0.99), ("&MATCH".into(), 0.64), ("Atfr".into(), 0.5)]);
+        assert_eq!(conf(&w), [0.99, 0.5, 0.5, 0.5]);
+        let mut w = words(&["A"]);
+        assign_confidences(&mut w, &[]);
+        assert_eq!(conf(&w), [1.0], "nothing read again: left as it was measured");
+    }
+
     /// The message tells end users what to do; release builds have no cargo.
     #[test]
     fn the_alphabet_is_the_trained_one() {
@@ -1046,6 +1162,7 @@ mod tests {
         assert!(text.iter().any(|t| t.contains("HELL") && t.contains("WOR")), "{text:?}");
         let word = lines.iter().flat_map(|l| &l.words).find(|w| w.text.contains("HELL")).unwrap();
         assert!(word.rect[0] >= 10.0 && word.rect[0] < 60.0, "{word:?}");
+        assert!(word.confidence > 0.0 && word.confidence <= 1.0, "{word:?}");
     }
 
     mod test_image {

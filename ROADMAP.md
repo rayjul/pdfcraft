@@ -135,6 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-12 (M10, ocr.editable-text-output):** Editable Text leaves words the recogniser is unsure of (under 0.9) in the image, so misreadings ("Area L?de") no longer replace the scan; per-word confidence from a second pass of the recognition model over each line.
 - **2026-10-12 (M10, ocr.editable-text-output):** Edit text & images recognises scanned pages as editable text by itself, as Acrobat's Edit PDF does (Edit panel ▸ Recognize text in scanned pages turns it off).
 - **2026-10-12 (M10, ocr.editable-text-output):** Edit text & images: clicking a recognised line on a scanned page opens it for editing; the full-page scan behind it took every click before (text now comes before an image that holds it whole; a picture under a text box's corner still wins).
 - **2026-10-12 (M10, ocr.editable-text-output):** Editable Text output leaves handwriting, stamps and specks in the image (words much taller than their line, in a tinted ink, or touching those) instead of covering them with giant misread text, and splits lines at table rules, wide gaps and unread ink so each table cell edits on its own and an unread digit is never covered. Found on a real signed, stamped packing list. Still missing: near-grey stamps over print.

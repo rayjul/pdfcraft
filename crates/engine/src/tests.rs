@@ -1869,6 +1869,44 @@ fn scanned(s: &mut Session, text: &str) -> DocId {
     s.open("scan.pdf", None, scan, None).unwrap()
 }
 
+/// Editable Text and Images on a blurry, faint scan: words the recogniser isn't sure of stay in
+/// the image, so far fewer misreadings replace what the page said.
+#[test]
+fn editable_ocr_leaves_unsure_words_in_the_image() {
+    if !ocr::available() {
+        eprintln!("skipped: OCR models not installed");
+        return;
+    }
+    let text = "MIX & MATCH DISTRIBUTORS Attn\nArea Code Phone Number 305-562-6159\n8788 BISCAYNE BLVD SUITE 200\nThe quick brown fox jumps over the lazy dog\nPlease remit payment to the address above";
+    let mut s = Session::new().with_clock(|| 1_700_000_000);
+    let t = s.create_from_text("t", text).unwrap();
+    let id = s.open("text.pdf", None, t, None).unwrap();
+    // Printed at 50 dpi, scanned back at 150 in faint ink.
+    let png = export::Exporter::new(s.get(id).unwrap()).png(0, 50.0).unwrap();
+    let img = image::load_from_memory(&png).unwrap().to_rgba8();
+    let mut img = image::imageops::resize(&img, img.width() * 3, img.height() * 3, image::imageops::FilterType::Triangle);
+    for p in img.pixels_mut() {
+        for c in 0..3 {
+            p[c] = 255 - ((255 - u32::from(p[c])) * 6 / 10) as u8;
+        }
+    }
+    let mut blurry = Vec::new();
+    image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut blurry), image::ImageFormat::Png).unwrap();
+    let scan = s.create_from_images(&[("scan.png".into(), blurry)]).unwrap();
+    let id = s.open("scan.pdf", None, scan, None).unwrap();
+
+    let truth: Vec<&str> = text.split_whitespace().collect();
+    let wrong = |words: &[String]| words.iter().filter(|w| !truth.contains(&w.as_str())).count();
+    let settings = ocr::OcrSettings { output: ocr::OcrOutput::EditableText, ..Default::default() };
+    let found = s.recognize_text(id, &[], settings).unwrap();
+    let read: Vec<String> = found[0].words.iter().map(|w| w.text.clone()).collect();
+    let converted: Vec<String> =
+        s.get(id).unwrap().text_lines(0).iter().flat_map(|l| l.text.split_whitespace().map(String::from).collect::<Vec<_>>()).collect();
+    assert!(wrong(&read) * 10 >= read.len() * 3, "the scan is hard to read: {read:?}");
+    assert!(!converted.is_empty() && converted.len() < read.len(), "{converted:?}");
+    assert!(wrong(&converted) * 4 <= converted.len(), "mostly right: {converted:?} (read {read:?})");
+}
+
 /// Edit text & images recognises scans first: a page that is only a picture is one, a page of
 /// text is not.
 #[test]
