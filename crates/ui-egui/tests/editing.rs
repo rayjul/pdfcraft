@@ -2313,3 +2313,66 @@ fn edit_text_opens_recognised_lines_over_a_scanned_page() {
     h.run_steps(2);
     assert!(h.state().views[0].image_selection.is_some(), "the scan is selected");
 }
+
+/// A letter page whose only paragraph is three lines of 10 pt Helvetica.
+fn paragraph_page() -> Vec<u8> {
+    let body = "BT /F1 10 Tf 12 TL 72 700 Td (The quick brown fox jumps over the lazy dog while the band plays on and on.) Tj T* \
+(Pack my box with five dozen liquor jugs, then sing a song of sixpence today.) Tj T* \
+(How vexingly quick daft zebras jump when the evening light falls on the hills.) Tj ET";
+    let objs: Vec<String> = vec![
+        "<< /Type /Catalog /Pages 2 0 R >>".into(),
+        "<< /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 612 792] >>".into(),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".into(),
+        "<< /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> >>".into(),
+        format!("<< /Length {} >>\nstream\n{body}\nendstream", body.len()),
+    ];
+    let mut out = b"%PDF-1.7\n".to_vec();
+    let mut offsets = Vec::new();
+    for (i, o) in objs.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n{o}\nendobj\n", i + 1).as_bytes());
+    }
+    let xref = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n0000000000 65535 f \n", objs.len() + 1).as_bytes());
+    for o in offsets {
+        out.extend_from_slice(format!("{o:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n", objs.len() + 1).as_bytes());
+    out
+}
+
+/// The box changed shape on opening: from the paragraph's wide box to a tall, narrow one.
+#[test]
+fn the_paragraph_editor_keeps_the_paragraphs_shape_at_any_zoom() {
+    for zoom in ["40", "100", "200"] {
+        let mut h = Harness::builder().with_size(egui::vec2(1400.0, 900.0)).build_eframe(move |_cc| {
+            let mut app = PdfCraftApp::new();
+            app.set_option("language", "en").unwrap();
+            app.open_bytes("para.pdf", None, paragraph_page()).expect("opens");
+            app.set_option("zoom", zoom).unwrap();
+            app
+        });
+        h.run_steps(4);
+        assert!(h.state_mut().execute("edit.edit_text"));
+        h.run_steps(2);
+        let r = h.state().views[0].page_screen_rect(0).expect("on screen");
+        let at = egui::pos2(r.left() + 150.0 / 612.0 * r.width(), r.top() + (792.0 - 690.0) / 792.0 * r.height());
+        h.hover_at(at);
+        h.run_steps(1);
+        h.drag_at(at);
+        h.run_steps(1);
+        h.drop_at(at);
+        h.run_steps(3);
+        let ed = h.state().views[0].line_editor.clone().expect("the paragraph opens for editing");
+        assert_eq!(ed.block, 0);
+        let block = h.state().session.get(h.state().views[0].id).unwrap().text_blocks(0)[0].clone();
+        assert_eq!(block.lines.len(), 3, "one three-line paragraph");
+        let px = r.width() / 612.0;
+        let source = egui::vec2((block.rect[2] - block.rect[0]) as f32 * px, (block.rect[3] - block.rect[1]) as f32 * px);
+        let area = h.ctx.memory(|m| m.area_rect(egui::Id::new("edit-text-line"))).expect("the editor shows");
+        // The editor sits over the paragraph: as wide and about as tall, not a tall column (small
+        // text at low zoom drawn larger than the page, or a box squeezed at the window's edge).
+        assert!((area.width() - source.x).abs() <= 12.0, "zoom {zoom}: width {} vs {}", area.width(), source.x);
+        assert!(area.height() <= source.y * 1.2 + 4.0, "zoom {zoom}: height {} vs {}", area.height(), source.y);
+    }
+}

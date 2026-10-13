@@ -162,6 +162,15 @@ fn editor_font(look: &pdfcraft_engine::AddedText, size: f32) -> FontId {
     FontId::new(size, family)
 }
 
+/// The editor's font size in screen pixels: the paragraph's own size at the page's zoom, so the
+/// text wraps where the page's does and the box keeps the paragraph's shape. A floor for legibility
+/// would wrap small text at low zoom into a tall, narrow column. The bounds only keep a degenerate
+/// size (a zero-width box, a huge `Tf`) out of the font atlas.
+fn editor_size(size: f32, px_per_pt: f32) -> f32 {
+    let v = size * px_per_pt;
+    if v.is_finite() { v.clamp(1.0, 512.0) } else { 12.0 }
+}
+
 fn color32(color: [f64; 3]) -> Color32 {
     Color32::from_rgb(
         (color[0].clamp(0.0, 1.0) * 255.0).round() as u8,
@@ -537,7 +546,7 @@ pub(crate) fn page_input(
             source_rect: l.rect.map(|v| v as f32),
             multiline: l.lines.len() > 1,
             max_width,
-            size: (l.size as f32 * scale).clamp(8.0, 72.0),
+            size: editor_size(l.size as f32, scale),
             focus: true,
             look: look_of(l),
             look0: look_of(l),
@@ -565,14 +574,30 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
     ed.rect = xf.user_rect(info, ed.page, ed.source_rect).expand(2.0);
     let right = xf.rect.right().min(viewport_right) - 6.0;
     ed.max_width = if ed.multiline { ed.rect.width() } else { (right - ed.rect.left()).max(ed.rect.width()) };
-    let scale = (ed.rect.width() / (ed.source_rect[2] - ed.source_rect[0]).abs().max(1.0)).max(0.01);
-    ed.size = (ed.look.size as f32 * scale).clamp(8.0, 72.0);
-    let font = editor_font(&ed.look, ed.size);
+    let scale = (ed.rect.width() - 4.0) / (ed.source_rect[2] - ed.source_rect[0]).abs().max(1.0);
+    ed.size = editor_size(ed.look.size as f32, scale);
     let text_color = color32(ed.look.color);
+    // The UI's font is not the paragraph's: one wider than it would wrap the paragraph into more
+    // lines than the page shows, growing the box downwards. Size it so the original text is as
+    // wide as the page draws it (the rewrite's own metrics), and the lines break about where the
+    // page's do. From the original text, so the size holds still while typing. A paragraph's
+    // lines are nearly full, and a word wrapping a little early on each would add a line: its
+    // text is drawn a word's width (about 7 %) narrower than that.
+    let fill = if ed.multiline { 0.93 } else { 1.0 };
+    let printed = ed.look.family.width(&ed.original, ed.look.size, ed.look.bold) as f32 * scale * fill;
+    let shown = ctx.fonts_mut(|f| f.layout_no_wrap(ed.original.clone(), editor_font(&ed.look, ed.size), text_color).size().x);
+    if printed.is_finite() && printed > 0.0 && shown > 0.0 {
+        ed.size = editor_size(ed.size * (printed / shown).clamp(0.6, 1.4), 1.0);
+    }
+    let font = editor_font(&ed.look, ed.size);
     let mut done = None;
-    egui::Area::new(egui::Id::new("edit-text-line")).order(egui::Order::Foreground).fixed_pos(Pos2::new(ed.rect.left(), ed.rect.top())).show(
-        ctx,
-        |ui| {
+    // Not kept inside the window: a paragraph running past its edge (zoomed in) would be squeezed
+    // into what's left and wrap into a tall column. Its overflow is clipped, like the page's.
+    egui::Area::new(egui::Id::new("edit-text-line"))
+        .order(egui::Order::Foreground)
+        .constrain(false)
+        .fixed_pos(Pos2::new(ed.rect.left(), ed.rect.top()))
+        .show(ctx, |ui| {
             // The box follows the text as you type: as wide as the longest drafted line needs
             // (up to what the rewrite allows), so new content grows the box instead of wrapping
             // inside the old one.
@@ -585,6 +610,8 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
             }
             // White, unless the text is too pale to read on white (white text from a coloured
             // banner, #913): then a dark box, with a caret that shows on it.
+            // Room for the whole box even where it runs past the window's edge.
+            ui.set_max_width(width + 4.0);
             let fill = editor_fill(text_color);
             egui::Frame::NONE.fill(fill).stroke(Stroke::new(1.5, ACCENT)).inner_margin(egui::Margin::symmetric(2, 0)).show(ui, |ui| {
                 ui.visuals_mut().text_cursor.stroke.color = if fill == Color32::WHITE { Color32::BLACK } else { Color32::WHITE };
@@ -610,8 +637,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                     done = Some(true);
                 }
             });
-        },
-    );
+        });
     match done {
         Some(apply) => {
             let ed = view.line_editor.take()?;
