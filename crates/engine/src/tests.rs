@@ -1869,10 +1869,11 @@ fn scanned(s: &mut Session, text: &str) -> DocId {
     s.open("scan.pdf", None, scan, None).unwrap()
 }
 
-/// Editable Text and Images on a blurry, faint scan: words the recogniser isn't sure of stay in
-/// the image, so far fewer misreadings replace what the page said.
+/// Editable Text and Images on a blurry, faint scan: words the recogniser isn't sure of are still
+/// editable, in their lines. Nothing on the page changes until a line is edited, and the editor
+/// shows the reading to correct; left in the image, they split lines and couldn't be edited.
 #[test]
-fn editable_ocr_leaves_unsure_words_in_the_image() {
+fn editable_ocr_keeps_unsure_words_editable() {
     if !ocr::available() {
         eprintln!("skipped: OCR models not installed");
         return;
@@ -1897,14 +1898,17 @@ fn editable_ocr_leaves_unsure_words_in_the_image() {
 
     let truth: Vec<&str> = text.split_whitespace().collect();
     let wrong = |words: &[String]| words.iter().filter(|w| !truth.contains(&w.as_str())).count();
+    let before = export::Exporter::new(s.get(id).unwrap()).png(0, 72.0).unwrap();
     let settings = ocr::OcrSettings { output: ocr::OcrOutput::EditableText, ..Default::default() };
     let found = s.recognize_text(id, &[], settings).unwrap();
     let read: Vec<String> = found[0].words.iter().map(|w| w.text.clone()).collect();
     let converted: Vec<String> =
         s.get(id).unwrap().text_lines(0).iter().flat_map(|l| l.text.split_whitespace().map(String::from).collect::<Vec<_>>()).collect();
     assert!(wrong(&read) * 10 >= read.len() * 3, "the scan is hard to read: {read:?}");
-    assert!(!converted.is_empty() && converted.len() < read.len(), "{converted:?}");
-    assert!(wrong(&converted) * 4 <= converted.len(), "mostly right: {converted:?} (read {read:?})");
+    // Every word read is editable (specks aside), misread or not.
+    assert!(converted.len() * 10 >= read.len() * 9, "{converted:?} (read {read:?})");
+    assert!(wrong(&converted) * 10 >= converted.len() * 3, "unsure words included: {converted:?}");
+    assert!(export::Exporter::new(s.get(id).unwrap()).png(0, 72.0).unwrap() == before, "the page looks as scanned");
 }
 
 /// Edit text & images recognises scans first: a page that is only a picture is one, a page of

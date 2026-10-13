@@ -135,6 +135,7 @@ Ranked; detail and the full milestone table in [docs/roadmap.md](docs/roadmap.md
 
 Newest first: the date, what moved, and the new overall estimate.
 
+- **2026-10-13 (M10, ocr.editable-text-output):** Words the recogniser is unsure of stay editable in their lines ("HOUSTON," was left out of "HOUSTON, TX 77003"); now that nothing replaces the scan until a line is edited, leaving them in the image only split lines.
 - **2026-10-13 (M10, ocr.editable-text-output):** Editable Text no longer changes a scanned page: recognised lines are invisible until edited, and the first edit covers that line's scanned words and shows the new text (a real packing list came out in another font with misread words on show). The Edit text box keeps its paragraph's shape at any zoom.
 - **2026-10-12 (M10, ocr.editable-text-output):** Editable Text leaves words the recogniser is unsure of (under 0.9) in the image, so misreadings ("Area L?de") no longer replace the scan; per-word confidence from a second pass of the recognition model over each line.
 - **2026-10-12 (M10, ocr.editable-text-output):** Edit text & images recognises scanned pages as editable text by itself, as Acrobat's Edit PDF does (Edit panel ▸ Recognize text in scanned pages turns it off).

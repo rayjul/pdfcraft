@@ -473,10 +473,6 @@ const SPECK: f32 = 0.4;
 /// A word nearer than this many line heights to one left in the image (on any line, side by
 /// side) is left too: a stamp or signature rarely ends exactly where OCR split the words.
 const TOUCHING: f32 = 0.5;
-/// A word the recogniser is less sure of than this is left in the image: replacing scanned words
-/// with a misreading ("Area L?de" for "Area Code") loses what the page said, while leaving a
-/// correct word only means it can't be edited. Clean print reads at 0.95 and above.
-const UNSURE: f32 = 0.9;
 /// Words further apart than this many line heights are separate fields (columns, form labels
 /// and their values), each its own line.
 const FIELD_GAP: f32 = 2.5;
@@ -485,9 +481,11 @@ const FIELD_GAP: f32 = 2.5;
 /// - Words much taller than the rest of their line (handwriting or a stamp through them), in an
 ///   ink of another colour than the page's print (a blue signature, a red stamp) or too small to
 ///   be letters (specks) are left in the image, untouched.
-/// - Words touching those are left too ([`TOUCHING`]), and so are words the recogniser isn't
-///   sure of ([`UNSURE`]), so a misreading never replaces what the scan says.
-/// - A line is split where such a word was, at a ruled line between two words (table cells), at
+/// - Words touching those are left too ([`TOUCHING`]).
+/// - Words the recogniser isn't sure of stay in their line. Nothing replaces the scan until the
+///   line is edited ([`editable_layer`]), and the editor then shows the reading to correct; left
+///   out, they split the line ("HOUSTON," apart from "TX 77003") and couldn't be edited at all.
+/// - A line is split where a left word was, at a ruled line between two words (table cells), at
 ///   a gap wider than [`FIELD_GAP`] line heights, so each cell or field edits on its own, and
 ///   where something OCR didn't read is inked between two words, so the cover never hides it.
 /// - A measured em that doesn't fit the words' boxes (something else inked in the box) is
@@ -538,7 +536,7 @@ pub fn editable_lines(rgba: &[u8], width: u32, height: u32, lines: &[Line]) -> V
         let Some(line_height) = line_height else { continue };
         let mut part: Vec<Word> = Vec::new();
         for &(w, _, paper) in words {
-            if marked(w) || w.confidence < UNSURE {
+            if marked(w) {
                 out.extend(measure(rgba, width, height, std::mem::take(&mut part)));
                 continue;
             }
@@ -1096,15 +1094,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
-    /// A word the recogniser isn't sure of stays in the image: the line splits around it.
+    /// A word the recogniser isn't sure of stays in its line, to be corrected when the line is
+    /// edited: leaving it in the image split the line and left the word uneditable.
     #[test]
-    fn unsure_words_stay_in_the_image() {
+    fn unsure_words_stay_in_their_line() {
         let words = [("Area", [10, 40, 50, 60]), ("L?de", [58, 40, 95, 60]), ("Phone", [103, 40, 150, 60])];
         let ink: Vec<_> = words.iter().map(|(_, r)| printed(*r)).collect();
         let px = painted(200, 100, &ink);
         let mut line = Line { words: words.iter().map(|(t, r)| ocr_word(t, *r)).collect() };
         line.words[1].confidence = 0.6;
-        assert_eq!(texts(&editable_lines(&px, 200, 100, &[line])), ["Area", "Phone"]);
+        assert_eq!(texts(&editable_lines(&px, 200, 100, &[line])), ["Area L?de Phone"]);
     }
 
     /// Confidences read again go to the right words: in order when the readings split alike,
