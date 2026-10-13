@@ -56,6 +56,36 @@ struct TextState {
     leading: f64,
     rise: f64,
     fill: Vec<Op>,
+    /// Text rendering mode (`Tr`); 3 is invisible.
+    render_mode: i64,
+    /// The DeviceRGB stroke colour (`RG`), if that is how it was last set: for invisible
+    /// recognised text, the colour of the paper under it ([`OCR_PAPER`]).
+    stroke_rgb: Option<[f64; 3]>,
+}
+
+/// Recognised text not yet changed: a scanned page's line, drawn invisible (`3 Tr`) over the scan
+/// with the paper's colour as its stroke colour (`pdfcraft_ocr::editable_layer`). The scan shows
+/// until the line is edited; then the rewrite covers its words in that colour and draws the new
+/// text visibly.
+fn ocr_paper(state: &TextState) -> Option<[f64; 3]> {
+    state.stroke_rgb.filter(|_| state.render_mode == 3)
+}
+
+/// The cover over the scanned words of recognised lines changed for the first time (see
+/// [`ocr_paper`]): their boxes, a little larger, filled with the paper's colour. Drawn outside
+/// any text object, in the space `ctm` maps to the page (taken back to the page's own).
+fn ocr_cover(paper: [f64; 3], ctm: [f64; 6], rects: &[[f64; 4]]) -> Vec<Op> {
+    let n = pdfcraft_content::num;
+    let Some(back) = Matrix(ctm).invert() else { return Vec::new() };
+    let mut ops = vec![Op::new("q", vec![]), Op::new("cm", back.0.iter().map(|v| n(*v)).collect()), Op::new("rg", paper.map(n).to_vec())];
+    for &[x0, y0, x1, y1] in rects {
+        // The scan's ink runs a little past the text's own extent.
+        let pad = (y1 - y0).abs() * 0.15;
+        ops.push(Op::new("re", vec![n(x0 - pad), n(y0 - pad), n(x1 - x0 + 2.0 * pad), n(y1 - y0 + 2.0 * pad)]));
+    }
+    ops.push(Op::new("f", vec![]));
+    ops.push(Op::new("Q", vec![]));
+    ops
 }
 
 impl TextState {
@@ -68,6 +98,8 @@ impl TextState {
             leading: ts.leading,
             rise: ts.rise,
             fill: ts.fill.clone(),
+            render_mode: ts.render_mode,
+            stroke_rgb: ts.stroke_rgb,
         }
     }
 
@@ -149,6 +181,7 @@ struct Ts {
     leading: f64,
     rise: f64,
     render_mode: i64,
+    stroke_rgb: Option<[f64; 3]>,
 }
 
 fn content_streams(doc: &Document, page: &Dict) -> Vec<(Object, Vec<u8>)> {
@@ -292,6 +325,7 @@ impl Carry {
             leading: 0.0,
             rise: 0.0,
             render_mode: 0,
+            stroke_rgb: None,
         };
         Carry { ts, stack: Vec::new() }
     }
@@ -334,6 +368,8 @@ fn interpret(
                 at_bt = (i, ts.clone());
             }
             b"g" | b"rg" | b"k" | b"cs" => ts.fill = vec![op.clone()],
+            b"RG" => ts.stroke_rgb = op.nums::<3>().filter(|c| c.iter().all(|v| v.is_finite())),
+            b"G" | b"K" | b"CS" | b"SC" | b"SCN" => ts.stroke_rgb = None,
             b"sc" | b"scn" => {
                 ts.fill.retain(|o| o.is("cs"));
                 ts.fill.push(op.clone());
@@ -921,6 +957,13 @@ pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) ->
     let reused = font.as_ref().and_then(|m| m.encode(&text));
     let mut substituted = None;
     let mut replacement: Vec<Op> = Vec::new();
+    // Recognised text changed for the first time: cover the scanned words before its text
+    // object, and show the new text (only it: the rest of the text object keeps its mode).
+    let paper = ocr_paper(&target.origin.state);
+    let mut cover = paper.map(|p| ocr_cover(p, target.origin.ctm, std::slice::from_ref(&target.rect))).unwrap_or_default();
+    if paper.is_some() {
+        replacement.push(Op::new("Tr", vec![Object::Int(0)]));
+    }
     // ' and " also move to the next line; keep that.
     match ops[first].op.as_slice() {
         b"'" => replacement.push(Op::new("T*", vec![])),
@@ -971,7 +1014,19 @@ pub fn replace_line(doc: &mut Document, page: usize, line: usize, text: &str) ->
     // Rebuild: the line's first operator becomes the replacement, its others go. Copies of the
     // line drawn in the same area go too, so the replacement is all that shows.
     let drops = coincident_ops(&lines, std::slice::from_ref(&target.rect));
-    let new_data = splice(&pieces, &ops, |i| if i == first { (std::mem::take(&mut replacement), false) } else { (Vec::new(), !drops.contains(&i)) });
+    if paper.is_some() {
+        replacement.push(Op::new("Tr", vec![Object::Int(3)]));
+    }
+    let bt = target.origin.bt_op;
+    let new_data = splice(&pieces, &ops, |i| {
+        let mut insert = if i == bt { std::mem::take(&mut cover) } else { Vec::new() };
+        if i == first {
+            insert.append(&mut replacement);
+            (insert, false)
+        } else {
+            (insert, !drops.contains(&i))
+        }
+    });
     let contents = rewritten_contents(doc, &streams, new_data);
     let page_ref = p.obj;
     if substituted.is_some() {
@@ -1254,6 +1309,12 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
     let n = pdfcraft_content::num;
     // In its own graphics state, so a new colour (or anything else) stops at the paragraph.
     let mut block_ops = vec![Op::new("q", vec![])];
+    // Recognised text over a scan, changed for the first time: the scanned words go under the
+    // paper's colour (where they were, even if the paragraph moves) and the text becomes visible.
+    let paper = ocr_paper(&o.state);
+    if let Some(paper) = paper {
+        block_ops.extend(ocr_cover(paper, o.ctm, &members.iter().map(|l| l.rect).collect::<Vec<_>>()));
+    }
     // Moved: a translation inside that state. The move is in page space, so it is taken back
     // through the CTM's linear part into the space the paragraph is drawn in.
     if dx != 0.0 || dy != 0.0 {
@@ -1272,6 +1333,9 @@ pub fn rewrite_block(doc: &mut Document, page: usize, block: usize, text: Option
         state.fill = vec![Op::new("rg", vec![n(r), n(g), n(bl)])];
     }
     block_ops.extend(state.ops());
+    if paper.is_some() {
+        block_ops.push(Op::new("Tr", vec![n(0.0)]));
+    }
     block_ops.push(Op::new("Tm", o.tm.iter().map(|v| n(*v)).collect()));
     // Alignment: each line's offset from the left edge, in text space.
     let offset = |line: &str| -> f64 {

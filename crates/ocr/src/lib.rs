@@ -629,13 +629,16 @@ fn measure(rgba: &[u8], width: u32, height: u32, words: Vec<Word>) -> Option<Edi
 /// out squashed to nothing or stretched across the page.
 const SCALE_RANGE: (f64, f64) = (50.0, 200.0);
 
-/// Page content for Acrobat's "Editable Text and Images" output: each line's scanned words are
-/// covered with the paper colour, then the line is drawn as visible text in `/PCHelv` (standard
-/// Helvetica, WinAnsiEncoding) in the ink colour, sized to the line's height and scaled to its
-/// width. Each line is one text object, so Edit text sees it as one editable line. The covers all
-/// come first, so one line's margin never paints over another line's text.
+/// Page content for Acrobat's "Editable Text and Images" output: each line in `/PCHelv` (standard
+/// Helvetica, WinAnsiEncoding), sized to the line's height and scaled to its width, so Edit text
+/// sees it as one editable line over the scanned one.
+///
+/// The text is invisible (`3 Tr`) until it is edited, so the page looks exactly as scanned:
+/// drawing every line at once replaced the scan's own type with another font and put each
+/// misread word on show. Its fill is the ink's colour and its stroke the paper's: when Edit text
+/// first changes the line, it covers the scanned words in the paper's colour and draws the new
+/// text visibly in the ink's. Until then the line is also the page's searchable text.
 pub fn editable_layer(lines: &[PlacedLine]) -> Vec<u8> {
-    let mut covers = String::new();
     let mut texts = Vec::new();
     for line in lines {
         let Some(g) = LineGeometry::of(line) else { continue };
@@ -656,29 +659,20 @@ pub fn editable_layer(lines: &[PlacedLine]) -> Vec<u8> {
         if natural <= 0.0 {
             continue;
         }
-        // The cover: the line's box, a little larger, so no edge of a letter shows.
-        let pad = g.height * 0.12;
-        let (a, u) = (g.across, g.up);
-        let at = |along: f64, up: f64| [g.base[0] + a[0] * along + u[0] * up, g.base[1] + a[1] * along + u[1] * up];
-        let corners = [at(-pad, -pad), at(g.length + pad, -pad), at(g.length + pad, g.height + pad), at(-pad, g.height + pad)];
-        let [r, gr, b] = line.paper;
-        covers.push_str(&format!("{} {} {} rg\n", num(r), num(gr), num(b)));
-        for (i, c) in corners.iter().enumerate() {
-            covers.push_str(&format!("{} {} {}\n", num(c[0]), num(c[1]), if i == 0 { "m" } else { "l" }));
-        }
-        covers.push_str("h f\n");
         // The text, on the baseline and scaled to the line's width.
         let scale = (100.0 * length / natural).clamp(SCALE_RANGE.0, SCALE_RANGE.1);
-        let [r, gr, b] = line.ink;
+        let [pr, pg, pb] = line.paper.map(num);
+        let [r, gr, b] = line.ink.map(num);
         let m = [across[0], across[1], up[0], up[1], origin[0], origin[1]].map(num).join(" ");
-        texts.extend_from_slice(format!("BT\n/PCHelv {} Tf\n{} Tz\n{} {} {} rg\n{m} Tm ", num(size), num(scale), num(r), num(gr), num(b)).as_bytes());
+        texts.extend_from_slice(
+            format!("q\n{pr} {pg} {pb} RG\nBT\n3 Tr\n/PCHelv {} Tf\n{} Tz\n{r} {gr} {b} rg\n{m} Tm ", num(size), num(scale)).as_bytes(),
+        );
         texts.extend(pdfcraft_fonts::literal(&pdfcraft_fonts::win_ansi(&text)));
-        texts.extend_from_slice(b" Tj\nET\n");
+        texts.extend_from_slice(b" Tj\nET\nQ\n");
     }
-    let mut out = b"q\n".to_vec();
-    out.extend_from_slice(covers.as_bytes());
+    let mut out = b"/OCR BMC\n".to_vec();
     out.extend(texts);
-    out.extend_from_slice(b"Q\n");
+    out.extend_from_slice(b"EMC\n");
     out
 }
 
@@ -898,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn editable_layer_covers_the_words_and_draws_visible_text() {
+    fn editable_layer_leaves_the_scan_showing_until_a_line_is_edited() {
         let line = PlacedLine {
             words: vec![word("Hello", 100.0, 40.0, 500.0, 12.0), word("world", 146.0, 40.0, 499.0, 13.0)],
             ink: [0.1, 0.2, 0.5],
@@ -906,18 +900,16 @@ mod tests {
             em: None,
         };
         let s = String::from_utf8(editable_layer(&[line])).unwrap();
-        // The cover, in the paper colour, before the text.
-        let cover = s.find("1 0.95 0.9 rg").expect("paper colour");
-        let text = s.find("BT").expect("text object");
-        assert!(cover < text && s.contains("h f"), "{s}");
-        // Visible text (no `3 Tr`), in the ink colour, the line as one string.
-        assert!(!s.contains("Tr") && s.contains("0.1 0.2 0.5 rg") && s.contains("(Hello world) Tj"), "{s}");
+        // Nothing painted over the scan: invisible text, the paper's colour kept as its stroke for
+        // the cover an edit draws, the ink's as its fill, the line as one string.
+        assert!(!s.contains(" f\n") && s.contains("3 Tr"), "{s}");
+        assert!(s.contains("1 0.95 0.9 RG") && s.contains("0.1 0.2 0.5 rg") && s.contains("(Hello world) Tj"), "{s}");
         // Sized to the line: lowest bottom 499, highest top 512; level, though the bottoms differ.
         assert!(s.contains(&format!("/PCHelv {} Tf", num(13.0 / BOX_EM))), "{s}");
         assert!(s.contains(&format!("1 0 0 1 100 {} Tm", num(499.0 + DESCENT * 13.0 / BOX_EM))), "{s}");
         let natural = helvetica_width("Hello world", 13.0 / BOX_EM);
         assert!(s.contains(&format!("{} Tz", num((100.0 * 86.0 / natural).clamp(50.0, 200.0)))), "{s}");
-        assert!(s.starts_with("q\n") && s.ends_with("Q\n"));
+        assert!(s.starts_with("/OCR BMC\nq\n") && s.ends_with("Q\nEMC\n"), "{s}");
     }
 
     #[test]
@@ -1071,7 +1063,7 @@ mod tests {
             bad(vec![word("x", f64::NAN, 10.0, 10.0, 10.0)]),
             bad(vec![word(" ", 10.0, 10.0, 10.0, 10.0)]),
         ];
-        assert_eq!(editable_layer(&lines), b"q\nQ\n");
+        assert_eq!(editable_layer(&lines), b"/OCR BMC\nEMC\n");
     }
 
     /// #103: every release package's layout puts the models where the installed app looks.

@@ -1949,35 +1949,49 @@ fn editable_ocr_lines_become_text_that_edit_text_changes() {
     assert_eq!(page_texts(&s, id), [""]);
 }
 
-/// End to end, when the models are installed: the scanned words are hidden and the visible text
-/// is what a reader (here OCR of the rendered page) sees, before and after editing it.
+/// End to end, when the models are installed: recognition leaves the page looking exactly as
+/// scanned; editing a line (or its paragraph) covers its scanned words and shows the new text, as
+/// a reader (here OCR of the rendered page) sees it.
 #[test]
-fn recognize_text_as_editable_text_replaces_the_scanned_words() {
+fn recognize_text_as_editable_text_replaces_the_scanned_words_once_edited() {
     if !ocr::available() {
         eprintln!("skipped: OCR models not installed");
         return;
     }
-    let mut s = Session::new().with_clock(|| 1_700_000_000);
-    let id = scanned(&mut s, "The quick brown fox jumps over the lazy dog.");
-    let settings = ocr::OcrSettings { output: ocr::OcrOutput::EditableText, ..Default::default() };
-    let found = s.recognize_text(id, &[], settings).unwrap();
-    assert_eq!(found[0].lines.len(), 1, "{:?}", found[0].lines);
-    let ink = found[0].lines[0].ink;
-    assert!(ink.iter().all(|c| *c < 0.35), "dark letters: {ink:?}");
-
-    let lines = s.get(id).unwrap().text_lines(0);
-    let k = lines.iter().position(|l| l.text.to_lowercase().contains("brown")).unwrap_or_else(|| panic!("{lines:?}"));
-    s.apply(id, Edit::EditTextLine { page: 0, line: k, text: "Hello there everyone".into() }).unwrap();
-
-    // What shows on the page now: the new words only, the scanned ones are covered.
-    let png = export::Exporter::new(s.get(id).unwrap()).png(0, 150.0).unwrap();
-    let img = image::load_from_memory(&png).unwrap().to_rgba8();
     let ocr = ocr::engine().unwrap();
-    let seen: String = ocr.recognize(img.as_raw(), img.width(), img.height()).unwrap().iter().map(|l| l.text()).collect::<Vec<_>>().join(" ");
-    let seen = seen.to_lowercase();
-    // The new words show (OCR spells some of them loosely, so the clearest two are checked).
-    assert!(seen.contains("there") && seen.contains("everyone"), "{seen}");
-    assert!(!seen.contains("brown") && !seen.contains("lazy"), "the scanned words still show: {seen}");
+    let seen = |s: &Session, id| {
+        let png = export::Exporter::new(s.get(id).unwrap()).png(0, 150.0).unwrap();
+        let img = image::load_from_memory(&png).unwrap().to_rgba8();
+        ocr.recognize(img.as_raw(), img.width(), img.height()).unwrap().iter().map(|l| l.text()).collect::<Vec<_>>().join(" ").to_lowercase()
+    };
+    for paragraph in [false, true] {
+        let mut s = Session::new().with_clock(|| 1_700_000_000);
+        let id = scanned(&mut s, "The quick brown fox jumps over the lazy dog.");
+        let before = export::Exporter::new(s.get(id).unwrap()).png(0, 72.0).unwrap();
+        let settings = ocr::OcrSettings { output: ocr::OcrOutput::EditableText, ..Default::default() };
+        let found = s.recognize_text(id, &[], settings).unwrap();
+        assert_eq!(found[0].lines.len(), 1, "{:?}", found[0].lines);
+        let ink = found[0].lines[0].ink;
+        assert!(ink.iter().all(|c| *c < 0.35), "dark letters: {ink:?}");
+        // Nothing changed on the page: no other font, no misread word on show.
+        assert!(export::Exporter::new(s.get(id).unwrap()).png(0, 72.0).unwrap() == before, "the page looks as scanned");
+
+        let lines = s.get(id).unwrap().text_lines(0);
+        let k = lines.iter().position(|l| l.text.to_lowercase().contains("brown")).unwrap_or_else(|| panic!("{lines:?}"));
+        let text = "Hello there everyone".to_string();
+        let edit = if paragraph {
+            Edit::EditTextBlock { page: 0, block: k, text, style: Default::default() }
+        } else {
+            Edit::EditTextLine { page: 0, line: k, text }
+        };
+        s.apply(id, edit).unwrap();
+
+        // What shows on the page now: the new words only, the scanned ones are covered.
+        let seen = seen(&s, id);
+        // The new words show (OCR spells some of them loosely, so the clearest two are checked).
+        assert!(seen.contains("there") && seen.contains("everyone"), "paragraph {paragraph}: {seen}");
+        assert!(!seen.contains("brown") && !seen.contains("lazy"), "paragraph {paragraph}: the scanned words still show: {seen}");
+    }
 }
 
 /// A form whose scripts are custom JavaScript: total = price × qty (calculate, through a
